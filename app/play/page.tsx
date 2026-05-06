@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { getTodayGame } from "@/lib/game";
+import { getTodayGame } from "@/lib/games";
 
 export default function PlayPage() {
   const router = useRouter();
