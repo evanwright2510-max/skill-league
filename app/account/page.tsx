@@ -59,8 +59,15 @@ export default function AccountPage() {
           </p>
 
           <button
+            onClick={() => router.push("/play")}
+            className="mt-8 w-full rounded-2xl bg-emerald-400 py-4 text-lg font-bold text-black transition hover:opacity-90"
+          >
+            Play Games
+          </button>
+
+          <button
             onClick={handleLogout}
-            className="mt-8 w-full rounded-2xl bg-white py-4 text-lg font-semibold text-black transition hover:opacity-90"
+            className="mt-4 w-full rounded-2xl bg-white py-4 text-lg font-semibold text-black transition hover:opacity-90"
           >
             Logout
           </button>
