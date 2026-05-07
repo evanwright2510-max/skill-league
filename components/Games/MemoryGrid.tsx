@@ -33,8 +33,6 @@ export default function MemoryGrid() {
 
   const patternSet = useMemo(() => new Set(pattern), [pattern]);
 
-  const roundCorrect = selected.filter((tile) => patternSet.has(tile)).length;
-  const roundWrong = selected.filter((tile) => !patternSet.has(tile)).length;
   const score = correctTotal - wrongTotal;
 
   function startRound(nextRound: number) {
@@ -59,6 +57,7 @@ export default function MemoryGrid() {
     setWrongTotal(0);
     setGameStarted(true);
     setGameOver(false);
+
     startRound(1);
   }
 
@@ -77,6 +76,7 @@ export default function MemoryGrid() {
     if (!gameStarted || gameOver || showing) return;
 
     const correct = selected.filter((tile) => patternSet.has(tile)).length;
+
     const wrong = selected.filter((tile) => !patternSet.has(tile)).length;
 
     const finalCorrect = correctTotal + correct;
@@ -89,13 +89,18 @@ export default function MemoryGrid() {
     if (round >= TOTAL_ROUNDS) {
       setGameOver(true);
       setGameStarted(false);
-      setMessage(`Game over. Final score: ${finalScore}`);
+
+      setMessage(
+        `Game over. Final score: ${finalScore} | Correct: ${finalCorrect} | Wrong: ${finalWrong}`
+      );
+
       return;
     }
 
-    setMessage(`Round ${round}: ${correct} correct, ${wrong} wrong.`);
+    setMessage(`Round ${round} submitted.`);
 
     const nextRound = round + 1;
+
     setRound(nextRound);
 
     setTimeout(() => {
@@ -110,7 +115,9 @@ export default function MemoryGrid() {
     savedRef.current = true;
 
     const totalGuesses = correctTotal + wrongTotal;
-    const accuracy = totalGuesses > 0 ? correctTotal / totalGuesses : 0;
+
+    const accuracy =
+      totalGuesses > 0 ? correctTotal / totalGuesses : 0;
 
     saveScore({
       gameId: "memory-grid",
@@ -131,12 +138,14 @@ export default function MemoryGrid() {
             <p className="mb-2 text-sm font-bold uppercase tracking-[0.35em] text-blue-300">
               Tuesday Game
             </p>
+
             <h1 className="text-5xl font-black tracking-tight">
               Memory <span className="text-blue-300">Grid</span>
             </h1>
+
             <p className="mt-3 max-w-xl text-zinc-300">
-              Memorize the blue pattern. You get 5 rounds. Correct squares add
-              points. Wrong squares deduct.
+              Memorize the blue pattern. You get 5 rounds.
+              Correct squares add points. Wrong squares deduct.
             </p>
           </div>
 
@@ -144,32 +153,61 @@ export default function MemoryGrid() {
             onClick={startGame}
             className="rounded-2xl bg-blue-300 px-8 py-4 text-lg font-black text-zinc-950 shadow-lg shadow-blue-950/40 transition hover:scale-[1.02] hover:bg-blue-200"
           >
-            {gameStarted ? "Restart" : gameOver ? "Play Again" : "Start Game"}
+            {gameStarted
+              ? "Restart"
+              : gameOver
+              ? "Play Again"
+              : "Start Game"}
           </button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur">
             <div className="mb-6 grid grid-cols-4 gap-3">
-              <Stat label="Round" value={`${round}/${TOTAL_ROUNDS}`} color="text-blue-300" />
-              <Stat label="Correct" value={correctTotal + roundCorrect} color="text-emerald-300" />
-              <Stat label="Wrong" value={wrongTotal + roundWrong} color="text-red-300" />
-              <Stat label="Score" value={score + roundCorrect - roundWrong} color="text-amber-300" />
+              <Stat
+                label="Round"
+                value={`${round}/${TOTAL_ROUNDS}`}
+                color="text-blue-300"
+              />
+
+              <Stat
+                label="Correct"
+                value={correctTotal}
+                color="text-emerald-300"
+              />
+
+              <Stat
+                label="Wrong"
+                value={wrongTotal}
+                color="text-red-300"
+              />
+
+              <Stat
+                label="Score"
+                value={score}
+                color="text-amber-300"
+              />
             </div>
 
             <div
               className="mx-auto grid max-w-xl gap-2"
-              style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}
+              style={{
+                gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+              }}
             >
               {Array.from({ length: GRID_SIZE }).map((_, index) => {
-                const isPattern = showing && pattern.includes(index);
+                const isPattern =
+                  showing && pattern.includes(index);
+
                 const isSelected = selected.includes(index);
 
                 return (
                   <button
                     key={index}
                     onClick={() => handleTileClick(index)}
-                    disabled={!gameStarted || gameOver || showing}
+                    disabled={
+                      !gameStarted || gameOver || showing
+                    }
                     className={[
                       "aspect-square rounded-xl border shadow-lg shadow-black/20 transition",
                       isPattern || isSelected
@@ -188,7 +226,9 @@ export default function MemoryGrid() {
 
               <button
                 onClick={submitRound}
-                disabled={!gameStarted || gameOver || showing}
+                disabled={
+                  !gameStarted || gameOver || showing
+                }
                 className="rounded-2xl bg-blue-300 px-6 py-3 font-black text-zinc-950 transition hover:bg-blue-200 disabled:opacity-40"
               >
                 Submit Pattern
@@ -200,10 +240,29 @@ export default function MemoryGrid() {
             <h2 className="text-2xl font-black">Rules</h2>
 
             <div className="mt-5 space-y-3 text-sm text-zinc-300">
-              <Rule title="7×7 Grid" color="text-blue-300" text="Watch the blue squares before they disappear." />
-              <Rule title="Correct" color="text-emerald-300" text="Each correct square adds +1." />
-              <Rule title="Wrong" color="text-red-300" text="Each wrong square deducts -1." />
-              <Rule title="Total" color="text-amber-300" text="You get 5 rounds. Highest final score wins." />
+              <Rule
+                title="7×7 Grid"
+                color="text-blue-300"
+                text="Watch the blue squares before they disappear."
+              />
+
+              <Rule
+                title="Correct"
+                color="text-emerald-300"
+                text="Each correct square adds +1."
+              />
+
+              <Rule
+                title="Wrong"
+                color="text-red-300"
+                text="Each wrong square deducts -1."
+              />
+
+              <Rule
+                title="Total"
+                color="text-amber-300"
+                text="You get 5 rounds. Highest final score wins."
+              />
             </div>
           </aside>
         </div>
@@ -226,6 +285,7 @@ function Stat({
       <p className={`text-xs font-bold uppercase tracking-widest ${color}`}>
         {label}
       </p>
+
       <p className="mt-1 text-4xl font-black">{value}</p>
     </div>
   );
@@ -243,6 +303,7 @@ function Rule({
   return (
     <div className="rounded-2xl bg-zinc-950/70 p-4">
       <p className={`font-black ${color}`}>{title}</p>
+
       <p>{text}</p>
     </div>
   );

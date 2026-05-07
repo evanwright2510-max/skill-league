@@ -29,6 +29,11 @@ export default function ReactionCity() {
   const lastTimeRef = useRef<number | null>(null);
   const savedRef = useRef(false);
 
+  const markerRef = useRef(0);
+  const directionRef = useRef(1);
+  const zoneRef = useRef<TargetZone>(makeZone(1));
+  const phaseRef = useRef<Phase>("idle");
+
   const [phase, setPhase] = useState<Phase>("idle");
   const [timeLeft, setTimeLeft] = useState(GAME_TIME);
   const [score, setScore] = useState(0);
@@ -38,12 +43,15 @@ export default function ReactionCity() {
   const [bestCombo, setBestCombo] = useState(0);
   const [level, setLevel] = useState(1);
   const [markerX, setMarkerX] = useState(0);
-  const [direction, setDirection] = useState(1);
-  const [zone, setZone] = useState<TargetZone>(() => makeZone(1));
+  const [zone, setZone] = useState<TargetZone>(() => zoneRef.current);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [message, setMessage] = useState(
     "Press start. Lock the cursor inside the green zone."
   );
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   const progressPercent = Math.round((timeLeft / GAME_TIME) * 100);
 
@@ -54,10 +62,22 @@ export default function ReactionCity() {
   const markerPercent = (markerX / TRACK_WIDTH) * 100;
   const zoneLeftPercent = (zone.start / TRACK_WIDTH) * 100;
   const zoneWidthPercent = (zone.width / TRACK_WIDTH) * 100;
-  const perfectWindow = Math.max(10, zone.width * 0.23);
+
+  function setNewZone(nextLevel: number) {
+    const nextZone = makeZone(nextLevel);
+    zoneRef.current = nextZone;
+    setZone(nextZone);
+  }
 
   function startGame() {
     savedRef.current = false;
+
+    markerRef.current = 0;
+    directionRef.current = 1;
+
+    const firstZone = makeZone(1);
+    zoneRef.current = firstZone;
+
     setPhase("playing");
     setTimeLeft(GAME_TIME);
     setScore(0);
@@ -67,50 +87,71 @@ export default function ReactionCity() {
     setBestCombo(0);
     setLevel(1);
     setMarkerX(0);
-    setDirection(1);
-    setZone(makeZone(1));
+    setZone(firstZone);
     setFeedback(null);
-    setMessage("Click when the marker is inside the green zone.");
-  }
-
-  function nextTarget(nextLevel: number) {
-    setZone(makeZone(nextLevel));
+    setMessage("Click or press SPACE when the marker is inside the green zone.");
   }
 
   function handleLock() {
-    if (phase !== "playing") return;
+    if (phaseRef.current !== "playing") return;
 
-    const center = zone.start + zone.width / 2;
-    const distanceFromCenter = Math.abs(markerX - center);
-    const inside = markerX >= zone.start && markerX <= zone.start + zone.width;
+    const currentMarker = markerRef.current;
+    const currentZone = zoneRef.current;
+
+    const zoneEnd = currentZone.start + currentZone.width;
+    const center = currentZone.start + currentZone.width / 2;
+    const distanceFromCenter = Math.abs(currentMarker - center);
+    const perfectWindow = Math.max(10, currentZone.width * 0.23);
+
+    const inside = currentMarker >= currentZone.start && currentMarker <= zoneEnd;
     const perfect = inside && distanceFromCenter <= perfectWindow;
 
     if (perfect) {
-      const nextCombo = combo + 1;
-      const gained = 150 + nextCombo * 12 + level * 8;
-      const nextLevel = level + (hits > 0 && hits % 4 === 0 ? 1 : 0);
+      setHits((prevHits) => {
+        const newHits = prevHits + 1;
+        const nextLevel = newHits % 4 === 0 ? level + 1 : level;
 
-      setScore((s) => s + gained);
-      setHits((h) => h + 1);
-      setCombo(nextCombo);
-      setBestCombo((b) => Math.max(b, nextCombo));
+        setLevel(nextLevel);
+        setNewZone(nextLevel);
+
+        return newHits;
+      });
+
+      setCombo((prevCombo) => {
+        const nextCombo = prevCombo + 1;
+        const gained = 150 + nextCombo * 12 + level * 8;
+
+        setScore((s) => s + gained);
+        setBestCombo((b) => Math.max(b, nextCombo));
+        setMessage(`Perfect lock! +${gained}`);
+
+        return nextCombo;
+      });
+
       setFeedback("perfect");
-      setMessage(`Perfect lock! +${gained}`);
-      setLevel(nextLevel);
-      nextTarget(nextLevel);
     } else if (inside) {
-      const nextCombo = combo + 1;
-      const gained = 85 + nextCombo * 6 + level * 5;
-      const nextLevel = level + (hits > 0 && hits % 4 === 0 ? 1 : 0);
+      setHits((prevHits) => {
+        const newHits = prevHits + 1;
+        const nextLevel = newHits % 4 === 0 ? level + 1 : level;
 
-      setScore((s) => s + gained);
-      setHits((h) => h + 1);
-      setCombo(nextCombo);
-      setBestCombo((b) => Math.max(b, nextCombo));
+        setLevel(nextLevel);
+        setNewZone(nextLevel);
+
+        return newHits;
+      });
+
+      setCombo((prevCombo) => {
+        const nextCombo = prevCombo + 1;
+        const gained = 85 + nextCombo * 6 + level * 5;
+
+        setScore((s) => s + gained);
+        setBestCombo((b) => Math.max(b, nextCombo));
+        setMessage(`Good hit! +${gained}`);
+
+        return nextCombo;
+      });
+
       setFeedback("good");
-      setMessage(`Good hit! +${gained}`);
-      setLevel(nextLevel);
-      nextTarget(nextLevel);
     } else {
       const penalty = Math.min(120, 35 + level * 5);
 
@@ -119,39 +160,37 @@ export default function ReactionCity() {
       setCombo(0);
       setFeedback("miss");
       setMessage(`Miss. -${penalty}`);
-      nextTarget(level);
+      setNewZone(level);
     }
 
-    setTimeout(() => setFeedback(null), 220);
+    window.setTimeout(() => setFeedback(null), 220);
   }
 
   useEffect(() => {
     if (phase !== "playing") return;
 
     function animate(now: number) {
-      if (lastTimeRef.current === null) lastTimeRef.current = now;
+      if (lastTimeRef.current === null) {
+        lastTimeRef.current = now;
+      }
 
       const delta = now - lastTimeRef.current;
       lastTimeRef.current = now;
 
-      setMarkerX((x) => {
-        let next = x + direction * speed * delta;
-        let nextDirection = direction;
+      let next = markerRef.current + directionRef.current * speed * delta;
 
-        if (next >= TRACK_WIDTH) {
-          next = TRACK_WIDTH;
-          nextDirection = -1;
-        }
+      if (next >= TRACK_WIDTH) {
+        next = TRACK_WIDTH;
+        directionRef.current = -1;
+      }
 
-        if (next <= 0) {
-          next = 0;
-          nextDirection = 1;
-        }
+      if (next <= 0) {
+        next = 0;
+        directionRef.current = 1;
+      }
 
-        if (nextDirection !== direction) setDirection(nextDirection);
-
-        return next;
-      });
+      markerRef.current = next;
+      setMarkerX(next);
 
       animationRef.current = requestAnimationFrame(animate);
     }
@@ -162,7 +201,7 @@ export default function ReactionCity() {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       lastTimeRef.current = null;
     };
-  }, [phase, speed, direction]);
+  }, [phase, speed]);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -190,12 +229,6 @@ export default function ReactionCity() {
 
     const accuracy = hits + misses > 0 ? hits / (hits + misses) : 0;
 
-    console.log("REACTION CITY GAME OVER");
-    console.log("FINAL SCORE:", score);
-    console.log("HITS:", hits);
-    console.log("MISSES:", misses);
-    console.log("ACCURACY:", accuracy);
-
     saveScore({
       gameId: "reaction-lock",
       score,
@@ -203,7 +236,7 @@ export default function ReactionCity() {
       accuracy,
       attemptNumber: 1,
     }).then((result) => {
-      console.log("SAVE RESULT:", result);
+      console.log("REACTION LOCK SAVE RESULT:", result);
     });
   }, [phase, score, hits, misses]);
 
@@ -217,7 +250,7 @@ export default function ReactionCity() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  }, []);
 
   return (
     <div className="min-h-screen overflow-hidden bg-black px-5 py-6 text-white">
@@ -359,7 +392,8 @@ export default function ReactionCity() {
                 </button>
 
                 <p className="mt-4 text-center text-sm font-bold text-zinc-500">
-                  You can also press <span className="text-zinc-300">SPACE</span>.
+                  You can also press{" "}
+                  <span className="text-zinc-300">SPACE</span>.
                 </p>
               </div>
             </div>
