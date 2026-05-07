@@ -1,22 +1,15 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const next = requestUrl.searchParams.get("next") ?? "/account";
 
-  if (!code) {
-    return NextResponse.redirect(new URL("/login", requestUrl.origin));
+  if (code) {
+    const supabase = await createClient();
+    await supabase.auth.exchangeCodeForSession(code);
   }
 
-  const supabase = await createClient();
-
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-  if (error) {
-    console.error("Auth callback error:", error.message);
-    return NextResponse.redirect(new URL("/login", requestUrl.origin));
-  }
-
-  return NextResponse.redirect(new URL("/account", requestUrl.origin));
+  return NextResponse.redirect(new URL(next, requestUrl.origin));
 }
