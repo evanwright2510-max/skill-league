@@ -12,10 +12,15 @@ export default function LoginPage() {
   async function signIn() {
     setMessage("Sending login link...");
 
+    if (!email.trim()) {
+      setMessage("Enter your email first.");
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: email.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}/menu`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
@@ -51,7 +56,9 @@ export default function LoginPage() {
         </button>
 
         {message && (
-          <p className="mt-4 text-sm text-zinc-300">{message}</p>
+          <p className="mt-4 text-sm text-zinc-300">
+            {message}
+          </p>
         )}
       </div>
     </div>
