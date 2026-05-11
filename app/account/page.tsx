@@ -72,7 +72,6 @@ export default function AccountPage() {
       id: user.id,
       username: cleanUsername,
       display_name: cleanUsername,
-      updated_at: new Date().toISOString(),
     });
 
     if (error) {
