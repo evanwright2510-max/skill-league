@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 import { saveScore } from "@/lib/saveScore";
 
 const GAME_TIME = 60;
@@ -43,7 +45,11 @@ function canMakeWord(word: string, board: string[]) {
 }
 
 export default function WordRush() {
+  const router = useRouter();
+  const supabase = createClient();
   const savedRef = useRef(false);
+
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [wordSet, setWordSet] = useState<Set<string>>(new Set());
   const [dictLoaded, setDictLoaded] = useState(false);
@@ -59,6 +65,25 @@ export default function WordRush() {
   const [message, setMessage] = useState("Loading dictionary...");
 
   useEffect(() => {
+    async function checkUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      setAuthLoading(false);
+    }
+
+    checkUser();
+  }, [router, supabase]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
     async function loadWords() {
       try {
         const res = await fetch("/words.txt");
@@ -82,7 +107,7 @@ export default function WordRush() {
     }
 
     loadWords();
-  }, []);
+  }, [authLoading]);
 
   const sortedWords = useMemo(() => {
     return [...usedWords].sort(
@@ -191,6 +216,14 @@ export default function WordRush() {
       console.log("WORD RUSH SAVE RESULT:", result);
     });
   }, [gameOver, score, usedWords]);
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
+        Checking login...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-zinc-950 to-emerald-950 px-4 py-8 text-white">
