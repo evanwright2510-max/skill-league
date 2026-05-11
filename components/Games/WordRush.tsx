@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { saveScore } from "@/lib/saveScore";
 
@@ -62,9 +63,7 @@ export default function WordRush() {
       try {
         const res = await fetch("/words.txt");
 
-        if (!res.ok) {
-          throw new Error("words.txt not found");
-        }
+        if (!res.ok) throw new Error("words.txt not found");
 
         const text = await res.text();
 
@@ -78,9 +77,7 @@ export default function WordRush() {
         setDictLoaded(true);
         setMessage("Find 4+ letter words.");
       } catch {
-        setMessage(
-          "Dictionary failed to load. Make sure words.txt is in /public."
-        );
+        setMessage("Dictionary failed to load. Make sure words.txt is in /public.");
       }
     }
 
@@ -203,22 +200,33 @@ export default function WordRush() {
             <p className="text-sm uppercase tracking-[0.35em] text-emerald-300">
               Monday Game
             </p>
+
             <h1 className="text-5xl font-black">
               Word <span className="text-emerald-300">Rush</span>
             </h1>
+
             <p className="mt-3 max-w-xl text-white/60">
               Make as many 4+ letter words as possible. The board changes every
               15 seconds.
             </p>
           </div>
 
-          <button
-            onClick={startGame}
-            disabled={!dictLoaded}
-            className="rounded-2xl bg-emerald-300 px-8 py-4 font-black text-zinc-950 transition hover:scale-105 hover:bg-emerald-200 disabled:scale-100 disabled:opacity-40"
-          >
-            {!dictLoaded ? "Loading..." : gameOver ? "Play Again" : "Start"}
-          </button>
+          <div className="flex gap-3">
+            <Link
+              href="/menu"
+              className="rounded-2xl border border-white/10 bg-white/10 px-6 py-4 font-black text-white transition hover:scale-105 hover:bg-white/15"
+            >
+              Menu
+            </Link>
+
+            <button
+              onClick={startGame}
+              disabled={!dictLoaded}
+              className="rounded-2xl bg-emerald-300 px-8 py-4 font-black text-zinc-950 transition hover:scale-105 hover:bg-emerald-200 disabled:scale-100 disabled:opacity-40"
+            >
+              {!dictLoaded ? "Loading..." : gameOver ? "Play Again" : "Start"}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -299,6 +307,7 @@ export default function WordRush() {
                 <h2 className="text-3xl font-black text-emerald-300">
                   Final Score: {score}
                 </h2>
+
                 <p className="mt-2 text-white/70">
                   You found {usedWords.length} words.
                 </p>
@@ -309,6 +318,7 @@ export default function WordRush() {
           <aside className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-2xl font-black">Words</h2>
+
               <span className="rounded-full bg-emerald-300/20 px-3 py-1 text-sm font-bold text-emerald-300">
                 {usedWords.length}
               </span>
@@ -326,6 +336,7 @@ export default function WordRush() {
                     <span className="font-bold uppercase tracking-wide">
                       {word}
                     </span>
+
                     <span className="text-sm font-black text-emerald-300">
                       +{scoreWord(word)}
                     </span>
