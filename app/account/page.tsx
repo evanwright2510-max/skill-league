@@ -70,7 +70,6 @@ export default function AccountPage() {
 
     const { error } = await supabase.from("profiles").upsert({
       id: user.id,
-      email: user.email,
       username: cleanUsername,
       display_name: cleanUsername,
       updated_at: new Date().toISOString(),
