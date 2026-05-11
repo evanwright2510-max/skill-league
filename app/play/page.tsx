@@ -1,45 +1,56 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { createClient } from "@/utils/supabase/client";
 
-export default function PlayPage() {
-  const router = useRouter();
+export default function LoginPage() {
+  const supabase = createClient();
 
-  useEffect(() => {
-    const day = new Date().getDay();
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
 
-    const routes: Record<number, string> = {
-      1: "/games/word-rush",
-      2: "/games/memory-grid",
-      3: "/games/precision-trace",
-      4: "/games/match-rush",
-      5: "/games/reaction-lock",
-    };
+  async function signIn() {
+    setMessage("Sending login link...");
 
-    const todayRoute = routes[day];
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
 
-    if (todayRoute) {
-      router.replace(todayRoute);
-    } else {
-      router.replace("/menu");
+    if (error) {
+      setMessage(error.message);
+      return;
     }
-  }, [router]);
+
+    setMessage("Check your email for the login link.");
+  }
 
   return (
-    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-black text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.18),transparent_35%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.15),transparent_35%)]" />
+    <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
+      <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-white/[0.06] p-8 shadow-2xl">
+        <h1 className="text-4xl font-black">Login</h1>
 
-      <div className="relative z-10 flex flex-col items-center">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-white/20 border-t-emerald-300" />
-
-        <h1 className="mt-8 text-4xl font-black tracking-tight">
-          Loading Today’s Game
-        </h1>
-
-        <p className="mt-3 text-lg text-zinc-400">
-          Preparing your challenge...
+        <p className="mt-3 text-zinc-400">
+          Enter your email and we’ll send you a magic login link.
         </p>
+
+        <input
+          className="mt-6 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <button
+          onClick={signIn}
+          className="mt-4 w-full rounded-2xl bg-emerald-300 px-6 py-4 font-black text-black"
+        >
+          Send Login Link
+        </button>
+
+        {message && <p className="mt-4 text-sm text-zinc-300">{message}</p>}
       </div>
     </main>
   );
