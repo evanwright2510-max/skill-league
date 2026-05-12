@@ -25,6 +25,7 @@ export default function MemoryGrid() {
 
   const [round, setRound] = useState(1);
   const [pattern, setPattern] = useState<number[]>([]);
+  const [visiblePattern, setVisiblePattern] = useState<number[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [showing, setShowing] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
@@ -39,7 +40,6 @@ export default function MemoryGrid() {
   const [phaseLabel, setPhaseLabel] = useState("-");
 
   const patternSet = useMemo(() => new Set(pattern), [pattern]);
-
   const score = correctTotal * 2 - wrongTotal - missedTotal;
 
   function clearTimers() {
@@ -51,25 +51,46 @@ export default function MemoryGrid() {
     clearTimers();
 
     const nextPattern = generatePattern(nextRound);
-    const flashTime = Math.max(700, 1500 - nextRound * 120);
-    const answerTime = Math.max(3500, 8000 - nextRound * 600);
+    const midpoint = Math.ceil(nextPattern.length / 2);
+
+    const firstHalf = nextPattern.slice(0, midpoint);
+    const secondHalf = nextPattern.slice(midpoint);
+
+    const firstFlashTime = 1300;
+    const pauseTime = 350;
+    const secondFlashTime = 1300;
+    const answerTime = Math.max(6000, 9500 - nextRound * 500);
 
     setPattern(nextPattern);
+    setVisiblePattern(firstHalf);
     setSelected([]);
     setSubmitted(false);
     setShowing(true);
-    setPhaseLabel("MEMORIZE");
-    setMessage(`Round ${nextRound}: memorize the blue squares quickly.`);
+    setPhaseLabel("FIRST");
+    setMessage(`Round ${nextRound}: memorize the first half.`);
 
     flashTimerRef.current = setTimeout(() => {
-      setShowing(false);
-      setPhaseLabel("FAST");
-      setMessage("Recreate the pattern before time runs out. Picks lock in.");
+      setVisiblePattern([]);
+      setPhaseLabel("WAIT");
+      setMessage("Get ready for the second half.");
 
-      answerTimerRef.current = setTimeout(() => {
-        submitRound(true);
-      }, answerTime);
-    }, flashTime);
+      flashTimerRef.current = setTimeout(() => {
+        setVisiblePattern(secondHalf);
+        setPhaseLabel("SECOND");
+        setMessage(`Round ${nextRound}: memorize the second half.`);
+
+        flashTimerRef.current = setTimeout(() => {
+          setVisiblePattern([]);
+          setShowing(false);
+          setPhaseLabel("ANSWER");
+          setMessage("Recreate the full pattern. Picks lock in.");
+
+          answerTimerRef.current = setTimeout(() => {
+            submitRound(true);
+          }, answerTime);
+        }, secondFlashTime);
+      }, pauseTime);
+    }, firstFlashTime);
   }
 
   function startGame() {
@@ -84,7 +105,7 @@ export default function MemoryGrid() {
     setGameStarted(true);
     setGameOver(false);
     setSubmitted(false);
-    setPhaseLabel("MEMORIZE");
+    setPhaseLabel("FIRST");
 
     startRound(1);
   }
@@ -100,13 +121,12 @@ export default function MemoryGrid() {
   function submitRound(autoSubmit = false) {
     if (!gameStarted || gameOver || showing || submitted) return;
 
-    clearTimers();
-
     if (!autoSubmit && selected.length !== pattern.length) {
       setMessage(`Pick exactly ${pattern.length} squares before submitting.`);
       return;
     }
 
+    clearTimers();
     setSubmitted(true);
 
     const correct = selected.filter((tile) => patternSet.has(tile)).length;
@@ -152,8 +172,8 @@ export default function MemoryGrid() {
 
     savedRef.current = true;
 
-    const totalGuesses = correctTotal + wrongTotal + missedTotal;
-    const accuracy = totalGuesses > 0 ? correctTotal / totalGuesses : 0;
+    const totalTiles = correctTotal + wrongTotal + missedTotal;
+    const accuracy = totalTiles > 0 ? correctTotal / totalTiles : 0;
 
     saveScore({
       gameId: "memory-grid",
@@ -184,8 +204,8 @@ export default function MemoryGrid() {
             </h1>
 
             <p className="mt-3 max-w-xl text-zinc-300">
-              Memorize the pattern. You must pick the exact number of squares.
-              No changing answers after clicking.
+              Memorize the pattern in two flashes. You must pick the exact
+              number of squares. No changing answers after clicking.
             </p>
           </div>
 
@@ -204,7 +224,7 @@ export default function MemoryGrid() {
               <Stat label="Needed" value={pattern.length} color="text-emerald-300" />
               <Stat label="Picked" value={selected.length} color="text-amber-300" />
               <Stat label="Score" value={gameOver ? score : "???"} color="text-zinc-300" />
-              <Stat label="Pressure" value={phaseLabel} color="text-red-300" />
+              <Stat label="Phase" value={phaseLabel} color="text-red-300" />
             </div>
 
             <div
@@ -212,7 +232,7 @@ export default function MemoryGrid() {
               style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}
             >
               {Array.from({ length: GRID_SIZE }).map((_, index) => {
-                const isPattern = showing && pattern.includes(index);
+                const isPattern = showing && visiblePattern.includes(index);
                 const isSelected = selected.includes(index);
 
                 return (
@@ -252,14 +272,14 @@ export default function MemoryGrid() {
 
             <div className="mt-5 space-y-3 text-sm text-zinc-300">
               <Rule
-                title="7×7 Grid"
+                title="Two Flashes"
                 color="text-blue-300"
-                text="Watch the blue squares before they disappear."
+                text="The pattern appears in two halves instead of all at once."
               />
               <Rule
                 title="Timed Answer"
                 color="text-red-300"
-                text="After the flash, you only have a few seconds to answer."
+                text="After both flashes, you only have a few seconds to answer."
               />
               <Rule
                 title="Locked Picks"
