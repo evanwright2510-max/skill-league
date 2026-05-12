@@ -31,6 +31,7 @@ export default function MemoryGrid() {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [timeUp, setTimeUp] = useState(false);
 
   const [correctTotal, setCorrectTotal] = useState(0);
   const [wrongTotal, setWrongTotal] = useState(0);
@@ -63,12 +64,15 @@ export default function MemoryGrid() {
     const topFlashTime = 1400;
     const pauseTime = 400;
     const bottomFlashTime = 1400;
-    const answerTime = Math.max(6500, 10000 - nextRound * 500);
+
+    // About 15 seconds more than before
+    const answerTime = Math.max(21500, 25000 - nextRound * 500);
 
     setPattern(nextPattern);
     setVisiblePattern(topHalf);
     setSelected([]);
     setSubmitted(false);
+    setTimeUp(false);
     setShowing(true);
     setPhaseLabel("TOP");
     setMessage(`Round ${nextRound}: memorize the TOP half.`);
@@ -90,7 +94,9 @@ export default function MemoryGrid() {
           setMessage("Recreate the FULL pattern. Picks lock in.");
 
           answerTimerRef.current = setTimeout(() => {
-            submitRound(true);
+            setTimeUp(true);
+            setPhaseLabel("TIME UP");
+            setMessage("Time is up. Submit what you have.");
           }, answerTime);
         }, bottomFlashTime);
       }, pauseTime);
@@ -109,23 +115,24 @@ export default function MemoryGrid() {
     setGameStarted(true);
     setGameOver(false);
     setSubmitted(false);
+    setTimeUp(false);
     setPhaseLabel("TOP");
 
     startRound(1);
   }
 
   function handleTileClick(index: number) {
-    if (!gameStarted || gameOver || showing || submitted) return;
+    if (!gameStarted || gameOver || showing || submitted || timeUp) return;
     if (selected.includes(index)) return;
     if (selected.length >= pattern.length) return;
 
     setSelected((prev) => [...prev, index]);
   }
 
-  function submitRound(autoSubmit = false) {
+  function submitRound() {
     if (!gameStarted || gameOver || showing || submitted) return;
 
-    if (!autoSubmit && selected.length !== pattern.length) {
+    if (!timeUp && selected.length !== pattern.length) {
       setMessage(`Pick exactly ${pattern.length} squares before submitting.`);
       return;
     }
@@ -157,8 +164,8 @@ export default function MemoryGrid() {
     }
 
     setMessage(
-      autoSubmit
-        ? `Time ran out. Round ${round} submitted. Next round loading...`
+      timeUp
+        ? `Time ran out. Submitted what you had. Next round loading...`
         : `Round ${round} submitted. Next round loading...`
     );
 
@@ -243,13 +250,13 @@ export default function MemoryGrid() {
                   <button
                     key={index}
                     onClick={() => handleTileClick(index)}
-                    disabled={!gameStarted || gameOver || showing || submitted}
+                    disabled={!gameStarted || gameOver || showing || submitted || timeUp}
                     className={[
                       "aspect-square rounded-xl border shadow-lg shadow-black/20 transition",
                       isPattern || isSelected
                         ? "border-blue-200 bg-blue-400"
                         : "border-white/10 bg-zinc-900 hover:border-blue-300/70 hover:bg-zinc-800",
-                      submitted ? "cursor-not-allowed opacity-80" : "",
+                      submitted || timeUp ? "cursor-not-allowed opacity-80" : "",
                     ].join(" ")}
                   />
                 );
@@ -262,11 +269,11 @@ export default function MemoryGrid() {
               </p>
 
               <button
-                onClick={() => submitRound(false)}
+                onClick={submitRound}
                 disabled={!gameStarted || gameOver || showing || submitted}
                 className="rounded-2xl bg-blue-300 px-6 py-3 font-black text-zinc-950 transition hover:bg-blue-200 disabled:opacity-40"
               >
-                Submit Pattern
+                {timeUp ? "Submit What You Have" : "Submit Pattern"}
               </button>
             </div>
           </section>
@@ -283,7 +290,7 @@ export default function MemoryGrid() {
               <Rule
                 title="Timed Answer"
                 color="text-red-300"
-                text="After both flashes, you only have a few seconds to answer."
+                text="When time runs out, your picks lock and you submit what you have."
               />
               <Rule
                 title="Locked Picks"
@@ -293,7 +300,7 @@ export default function MemoryGrid() {
               <Rule
                 title="Exact Amount"
                 color="text-amber-300"
-                text="You must pick the same number of squares shown."
+                text="Before time runs out, you must pick the same number of squares shown."
               />
               <Rule
                 title="Hidden Score"
