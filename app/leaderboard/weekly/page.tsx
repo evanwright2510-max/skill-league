@@ -30,15 +30,24 @@ type WeeklyPlayer = {
 
 function getWeekStart() {
   const now = new Date();
-  const day = now.getDay();
 
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const local = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
 
-  const monday = new Date(now);
+  const day = local.getDay(); // Sun = 0, Mon = 1, Tue = 2...
 
-  monday.setDate(diff);
+  const diff = day === 0 ? -6 : 1 - day;
 
-  return monday.toISOString().split("T")[0];
+  local.setDate(local.getDate() + diff);
+
+  const year = local.getFullYear();
+  const month = String(local.getMonth() + 1).padStart(2, "0");
+  const date = String(local.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${date}`;
 }
 
 function getLeaguePoints(rank: number) {
@@ -58,7 +67,7 @@ export default function WeeklyLeaderboardPage() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
 
-  const weekStart = getWeekStart();
+  const weekStart = useMemo(() => getWeekStart(), []);
 
   useEffect(() => {
     async function loadData() {
@@ -71,22 +80,26 @@ export default function WeeklyLeaderboardPage() {
         .eq("flagged", false);
 
       if (scoresError) {
-        console.error(scoresError);
+        console.error("Weekly leaderboard scores error:", scoresError);
+        setScores([]);
         setLoading(false);
         return;
       }
 
-      setScores(scoresData || []);
+      const rows = scoresData || [];
+      setScores(rows);
 
-      const userIds = [
-        ...new Set((scoresData || []).map((s) => s.user_id)),
-      ];
+      const userIds = [...new Set(rows.map((s) => s.user_id))];
 
       if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
+        const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("id, username, display_name")
           .in("id", userIds);
+
+        if (profilesError) {
+          console.error("Weekly leaderboard profiles error:", profilesError);
+        }
 
         const mapped: Record<string, Profile> = {};
 
@@ -95,18 +108,19 @@ export default function WeeklyLeaderboardPage() {
         }
 
         setProfiles(mapped);
+      } else {
+        setProfiles({});
       }
 
       setLoading(false);
     }
 
     loadData();
-  }, [weekStart]);
+  }, [supabase, weekStart]);
 
   const leaderboard = useMemo(() => {
     const groupedGames: Record<string, ScoreRow[]> = {};
 
-    // Group by game + date
     for (const score of scores) {
       const key = `${score.game_id}-${score.played_on}`;
 
@@ -119,15 +133,11 @@ export default function WeeklyLeaderboardPage() {
 
     const players: Record<string, WeeklyPlayer> = {};
 
-    // Rank each game/day separately
     for (const key in groupedGames) {
-      const ranked = groupedGames[key].sort(
-        (a, b) => b.score - a.score
-      );
+      const ranked = [...groupedGames[key]].sort((a, b) => b.score - a.score);
 
       ranked.forEach((score, index) => {
         const rank = index + 1;
-
         const leaguePoints = getLeaguePoints(rank);
 
         if (!players[score.user_id]) {
@@ -148,9 +158,17 @@ export default function WeeklyLeaderboardPage() {
       });
     }
 
-    return Object.values(players).sort(
-      (a, b) => b.totalLeaguePoints - a.totalLeaguePoints
-    );
+    return Object.values(players).sort((a, b) => {
+      if (b.totalLeaguePoints !== a.totalLeaguePoints) {
+        return b.totalLeaguePoints - a.totalLeaguePoints;
+      }
+
+      if (b.wins !== a.wins) {
+        return b.wins - a.wins;
+      }
+
+      return b.gamesPlayed - a.gamesPlayed;
+    });
   }, [scores]);
 
   return (
@@ -176,7 +194,7 @@ export default function WeeklyLeaderboardPage() {
           <div className="mt-6 flex gap-4">
             <Link
               href="/menu"
-              className="rounded-2xl bg-emerald-300 px-5 py-3 font-black text-black"
+              className="rounded-2xl bg-emerald-300 px-5 py-3 font-black text-black transition hover:bg-emerald-200"
             >
               Menu
             </Link>
@@ -193,15 +211,11 @@ export default function WeeklyLeaderboardPage() {
           </div>
 
           {loading && (
-            <div className="p-6 text-zinc-400">
-              Loading leaderboard...
-            </div>
+            <div className="p-6 text-zinc-400">Loading leaderboard...</div>
           )}
 
           {!loading && leaderboard.length === 0 && (
-            <div className="p-6 text-zinc-400">
-              No scores yet.
-            </div>
+            <div className="p-6 text-zinc-400">No scores yet.</div>
           )}
 
           {!loading &&
@@ -228,9 +242,7 @@ export default function WeeklyLeaderboardPage() {
                   </div>
 
                   <div>
-                    <p className="font-bold text-zinc-200">
-                      {displayName}
-                    </p>
+                    <p className="font-bold text-zinc-200">{displayName}</p>
 
                     {qualified && (
                       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">
@@ -247,9 +259,7 @@ export default function WeeklyLeaderboardPage() {
                     {player.gamesPlayed}
                   </div>
 
-                  <div className="font-bold text-zinc-300">
-                    {player.wins}
-                  </div>
+                  <div className="font-bold text-zinc-300">{player.wins}</div>
                 </div>
               );
             })}
