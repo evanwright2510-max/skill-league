@@ -20,6 +20,8 @@ function generatePattern(round: number) {
 
 export default function MemoryGrid() {
   const savedRef = useRef(false);
+  const answerTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const flashTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [round, setRound] = useState(1);
   const [pattern, setPattern] = useState<number[]>([]);
@@ -31,36 +33,58 @@ export default function MemoryGrid() {
 
   const [correctTotal, setCorrectTotal] = useState(0);
   const [wrongTotal, setWrongTotal] = useState(0);
+  const [missedTotal, setMissedTotal] = useState(0);
 
   const [message, setMessage] = useState("Memorize the pattern.");
+  const [phaseLabel, setPhaseLabel] = useState("-");
 
   const patternSet = useMemo(() => new Set(pattern), [pattern]);
-  const score = correctTotal - wrongTotal;
+
+  const score = correctTotal * 2 - wrongTotal - missedTotal;
+
+  function clearTimers() {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+  }
 
   function startRound(nextRound: number) {
+    clearTimers();
+
     const nextPattern = generatePattern(nextRound);
+    const flashTime = Math.max(700, 1500 - nextRound * 120);
+    const answerTime = Math.max(3500, 8000 - nextRound * 600);
 
     setPattern(nextPattern);
     setSelected([]);
     setSubmitted(false);
     setShowing(true);
-    setMessage(`Round ${nextRound}: memorize the blue squares.`);
+    setPhaseLabel("MEMORIZE");
+    setMessage(`Round ${nextRound}: memorize the blue squares quickly.`);
 
-    setTimeout(() => {
+    flashTimerRef.current = setTimeout(() => {
       setShowing(false);
-      setMessage("Recreate the pattern, then submit. Choices lock in.");
-    }, 1800);
+      setPhaseLabel("FAST");
+      setMessage("Recreate the pattern before time runs out. Picks lock in.");
+
+      answerTimerRef.current = setTimeout(() => {
+        submitRound(true);
+      }, answerTime);
+    }, flashTime);
   }
 
   function startGame() {
+    clearTimers();
+
     savedRef.current = false;
 
     setRound(1);
     setCorrectTotal(0);
     setWrongTotal(0);
+    setMissedTotal(0);
     setGameStarted(true);
     setGameOver(false);
     setSubmitted(false);
+    setPhaseLabel("MEMORIZE");
 
     startRound(1);
   }
@@ -73,9 +97,12 @@ export default function MemoryGrid() {
     setSelected((prev) => [...prev, index]);
   }
 
-  function submitRound() {
+  function submitRound(autoSubmit = false) {
     if (!gameStarted || gameOver || showing || submitted) return;
-    if (selected.length !== pattern.length) {
+
+    clearTimers();
+
+    if (!autoSubmit && selected.length !== pattern.length) {
       setMessage(`Pick exactly ${pattern.length} squares before submitting.`);
       return;
     }
@@ -84,24 +111,32 @@ export default function MemoryGrid() {
 
     const correct = selected.filter((tile) => patternSet.has(tile)).length;
     const wrong = selected.filter((tile) => !patternSet.has(tile)).length;
+    const missed = pattern.length - correct;
 
     const finalCorrect = correctTotal + correct;
     const finalWrong = wrongTotal + wrong;
-    const finalScore = finalCorrect - finalWrong;
+    const finalMissed = missedTotal + missed;
+    const finalScore = finalCorrect * 2 - finalWrong - finalMissed;
 
     setCorrectTotal(finalCorrect);
     setWrongTotal(finalWrong);
+    setMissedTotal(finalMissed);
 
     if (round >= TOTAL_ROUNDS) {
       setGameOver(true);
       setGameStarted(false);
+      setPhaseLabel("-");
       setMessage(
-        `Game over. Final score: ${finalScore} | Correct: ${finalCorrect} | Wrong: ${finalWrong}`
+        `Game over. Final score: ${finalScore} | Correct: ${finalCorrect} | Wrong: ${finalWrong} | Missed: ${finalMissed}`
       );
       return;
     }
 
-    setMessage(`Round ${round} submitted. Next round loading...`);
+    setMessage(
+      autoSubmit
+        ? `Time ran out. Round ${round} submitted. Next round loading...`
+        : `Round ${round} submitted. Next round loading...`
+    );
 
     const nextRound = round + 1;
     setRound(nextRound);
@@ -117,7 +152,7 @@ export default function MemoryGrid() {
 
     savedRef.current = true;
 
-    const totalGuesses = correctTotal + wrongTotal;
+    const totalGuesses = correctTotal + wrongTotal + missedTotal;
     const accuracy = totalGuesses > 0 ? correctTotal / totalGuesses : 0;
 
     saveScore({
@@ -129,7 +164,11 @@ export default function MemoryGrid() {
     }).then((result) => {
       console.log("MEMORY GRID SAVE RESULT:", result);
     });
-  }, [gameOver, score, correctTotal, wrongTotal]);
+  }, [gameOver, score, correctTotal, wrongTotal, missedTotal]);
+
+  useEffect(() => {
+    return () => clearTimers();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-zinc-950 to-blue-950 px-4 py-8 text-white">
@@ -160,11 +199,12 @@ export default function MemoryGrid() {
 
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur">
-            <div className="mb-6 grid grid-cols-4 gap-3">
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
               <Stat label="Round" value={`${round}/${TOTAL_ROUNDS}`} color="text-blue-300" />
               <Stat label="Needed" value={pattern.length} color="text-emerald-300" />
               <Stat label="Picked" value={selected.length} color="text-amber-300" />
-              <Stat label="Score" value={gameOver ? score : "Hidden"} color="text-zinc-300" />
+              <Stat label="Score" value={gameOver ? score : "???"} color="text-zinc-300" />
+              <Stat label="Pressure" value={phaseLabel} color="text-red-300" />
             </div>
 
             <div
@@ -198,7 +238,7 @@ export default function MemoryGrid() {
               </p>
 
               <button
-                onClick={submitRound}
+                onClick={() => submitRound(false)}
                 disabled={!gameStarted || gameOver || showing || submitted}
                 className="rounded-2xl bg-blue-300 px-6 py-3 font-black text-zinc-950 transition hover:bg-blue-200 disabled:opacity-40"
               >
@@ -211,10 +251,31 @@ export default function MemoryGrid() {
             <h2 className="text-2xl font-black">Rules</h2>
 
             <div className="mt-5 space-y-3 text-sm text-zinc-300">
-              <Rule title="7×7 Grid" color="text-blue-300" text="Watch the blue squares before they disappear." />
-              <Rule title="Locked Picks" color="text-emerald-300" text="Once you click a square, it stays selected." />
-              <Rule title="Exact Amount" color="text-amber-300" text="You must pick the same number of squares shown." />
-              <Rule title="Hidden Score" color="text-zinc-300" text="Your score is hidden until the game ends." />
+              <Rule
+                title="7×7 Grid"
+                color="text-blue-300"
+                text="Watch the blue squares before they disappear."
+              />
+              <Rule
+                title="Timed Answer"
+                color="text-red-300"
+                text="After the flash, you only have a few seconds to answer."
+              />
+              <Rule
+                title="Locked Picks"
+                color="text-emerald-300"
+                text="Once you click a square, it stays selected."
+              />
+              <Rule
+                title="Exact Amount"
+                color="text-amber-300"
+                text="You must pick the same number of squares shown."
+              />
+              <Rule
+                title="Hidden Score"
+                color="text-zinc-300"
+                text="Your score is hidden until the game ends."
+              />
             </div>
           </aside>
         </div>
@@ -238,7 +299,7 @@ function Stat({
         {label}
       </p>
 
-      <p className="mt-1 text-4xl font-black">{value}</p>
+      <p className="mt-1 text-3xl font-black">{value}</p>
     </div>
   );
 }
