@@ -51,46 +51,50 @@ export default function MemoryGrid() {
     clearTimers();
 
     const nextPattern = generatePattern(nextRound);
-    const midpoint = Math.ceil(nextPattern.length / 2);
 
-    const firstHalf = nextPattern.slice(0, midpoint);
-    const secondHalf = nextPattern.slice(midpoint);
+    const topHalf = nextPattern.filter(
+      (tile) => Math.floor(tile / GRID_COLS) < GRID_COLS / 2
+    );
 
-    const firstFlashTime = 1300;
-    const pauseTime = 350;
-    const secondFlashTime = 1300;
-    const answerTime = Math.max(6000, 9500 - nextRound * 500);
+    const bottomHalf = nextPattern.filter(
+      (tile) => Math.floor(tile / GRID_COLS) >= GRID_COLS / 2
+    );
+
+    const topFlashTime = 1400;
+    const pauseTime = 400;
+    const bottomFlashTime = 1400;
+    const answerTime = Math.max(6500, 10000 - nextRound * 500);
 
     setPattern(nextPattern);
-    setVisiblePattern(firstHalf);
+    setVisiblePattern(topHalf);
     setSelected([]);
     setSubmitted(false);
     setShowing(true);
-    setPhaseLabel("FIRST");
-    setMessage(`Round ${nextRound}: memorize the first half.`);
+    setPhaseLabel("TOP");
+    setMessage(`Round ${nextRound}: memorize the TOP half.`);
 
     flashTimerRef.current = setTimeout(() => {
       setVisiblePattern([]);
       setPhaseLabel("WAIT");
-      setMessage("Get ready for the second half.");
+      setMessage("Get ready for the BOTTOM half.");
 
       flashTimerRef.current = setTimeout(() => {
-        setVisiblePattern(secondHalf);
-        setPhaseLabel("SECOND");
-        setMessage(`Round ${nextRound}: memorize the second half.`);
+        setVisiblePattern(bottomHalf);
+        setPhaseLabel("BOTTOM");
+        setMessage(`Round ${nextRound}: memorize the BOTTOM half.`);
 
         flashTimerRef.current = setTimeout(() => {
           setVisiblePattern([]);
           setShowing(false);
           setPhaseLabel("ANSWER");
-          setMessage("Recreate the full pattern. Picks lock in.");
+          setMessage("Recreate the FULL pattern. Picks lock in.");
 
           answerTimerRef.current = setTimeout(() => {
             submitRound(true);
           }, answerTime);
-        }, secondFlashTime);
+        }, bottomFlashTime);
       }, pauseTime);
-    }, firstFlashTime);
+    }, topFlashTime);
   }
 
   function startGame() {
@@ -105,7 +109,7 @@ export default function MemoryGrid() {
     setGameStarted(true);
     setGameOver(false);
     setSubmitted(false);
-    setPhaseLabel("FIRST");
+    setPhaseLabel("TOP");
 
     startRound(1);
   }
@@ -204,7 +208,7 @@ export default function MemoryGrid() {
             </h1>
 
             <p className="mt-3 max-w-xl text-zinc-300">
-              Memorize the pattern in two flashes. You must pick the exact
+              Memorize the top half, then the bottom half. Pick the exact
               number of squares. No changing answers after clicking.
             </p>
           </div>
@@ -272,9 +276,9 @@ export default function MemoryGrid() {
 
             <div className="mt-5 space-y-3 text-sm text-zinc-300">
               <Rule
-                title="Two Flashes"
+                title="Top Then Bottom"
                 color="text-blue-300"
-                text="The pattern appears in two halves instead of all at once."
+                text="The top half flashes first, then the bottom half."
               />
               <Rule
                 title="Timed Answer"
