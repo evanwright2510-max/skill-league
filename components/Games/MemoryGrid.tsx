@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { saveScore } from "@/lib/saveScore";
 
@@ -64,8 +65,6 @@ export default function MemoryGrid() {
     const topFlashTime = 1400;
     const pauseTime = 400;
     const bottomFlashTime = 1400;
-
-    // About 15 seconds more than before
     const answerTime = Math.max(21500, 25000 - nextRound * 500);
 
     setPattern(nextPattern);
@@ -165,7 +164,7 @@ export default function MemoryGrid() {
 
     setMessage(
       timeUp
-        ? `Time ran out. Submitted what you had. Next round loading...`
+        ? "Time ran out. Submitted what you had. Next round loading..."
         : `Round ${round} submitted. Next round loading...`
     );
 
@@ -220,12 +219,21 @@ export default function MemoryGrid() {
             </p>
           </div>
 
-          <button
-            onClick={startGame}
-            className="rounded-2xl bg-blue-300 px-8 py-4 text-lg font-black text-zinc-950 shadow-lg shadow-blue-950/40 transition hover:scale-[1.02] hover:bg-blue-200"
-          >
-            {gameStarted ? "Restart" : gameOver ? "Play Again" : "Start Game"}
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/menu"
+              className="rounded-2xl border border-white/10 bg-white/10 px-8 py-4 text-center text-lg font-black text-white shadow-lg transition hover:scale-[1.02] hover:bg-white/20"
+            >
+              Menu
+            </Link>
+
+            <button
+              onClick={startGame}
+              className="rounded-2xl bg-blue-300 px-8 py-4 text-lg font-black text-zinc-950 shadow-lg shadow-blue-950/40 transition hover:scale-[1.02] hover:bg-blue-200"
+            >
+              {gameStarted ? "Restart" : gameOver ? "Play Again" : "Start Game"}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
