@@ -35,6 +35,7 @@ const GAMES = [
   { id: "word-rush", name: "Word Rush" },
   { id: "memory-grid", name: "Memory Grid" },
   { id: "precision-trace", name: "Precision Trace" },
+  { id: "match-rush", name: "Match Rush" },
   { id: "reaction-city", name: "Reaction City" },
   { id: "saturday-final", name: "Saturday Final" },
 ];
@@ -175,6 +176,7 @@ export default function WeeklyLeaderboardPage() {
         overall[row.user_id].leaguePoints += points;
         overall[row.user_id].gamesRanked += 1;
         overall[row.user_id].attempts += attempts;
+        overall[row.user_id].score += row.score;
 
         if (rank === 1) {
           overall[row.user_id].wins += 1;
