@@ -5,18 +5,23 @@ import { saveScore } from "@/lib/saveScore";
 
 const WIDTH = 1500;
 const HEIGHT = 760;
-const GAME_TIME = 120;
+const GAME_TIME = 180;
 
 type Point = { x: number; y: number };
 type Phase = "idle" | "study" | "ready" | "tracing" | "crashed" | "gameOver";
+type HazardMode = "still" | "horizontal" | "vertical" | "orbit" | "diagonal";
 
 type Hazard = {
   id: number;
   x: number;
   y: number;
+  startX: number;
+  startY: number;
   r: number;
-  dx: number;
-  dy: number;
+  mode: HazardMode;
+  amp: number;
+  speed: number;
+  phase: number;
 };
 
 type TrailPoint = Point & { t: number };
@@ -57,28 +62,76 @@ function distToPath(p: Point, path: Point[]) {
   return best;
 }
 
+function getLevelSettings(level: number) {
+  return {
+    corridorWidth: Math.max(160, 305 - level * 3.2),
+    studyTime: Math.max(4600, 9200 - level * 110),
+
+    hazardCount:
+      level <= 3
+        ? 3 + level
+        : level <= 7
+          ? 5 + Math.floor(level * 0.8)
+          : level <= 12
+            ? 8 + Math.floor(level * 0.9)
+            : 11 + Math.floor(level * 1.05),
+
+    minRadius: Math.max(15, 31 - level * 0.45),
+    maxRadius: Math.max(23, 50 - level * 0.55),
+
+    movingChance:
+      level <= 3
+        ? 0.05
+        : level <= 7
+          ? 0.18
+          : level <= 12
+            ? 0.32
+            : 0.48,
+
+    motionSpeed:
+      level <= 4
+        ? 0.0005
+        : level <= 9
+          ? 0.00072
+          : level <= 14
+            ? 0.00095
+            : 0.00118,
+
+    motionAmp:
+      level <= 4
+        ? 10
+        : level <= 9
+          ? 18
+          : level <= 14
+            ? 27
+            : 35,
+  };
+}
+
 function makePath(level: number): Point[] {
-  const points = [
+  if (level <= 3) {
+    return [
+      { x: 95, y: HEIGHT / 2 },
+      { x: 360, y: rand(285, 360) },
+      { x: 665, y: rand(400, 475) },
+      { x: 970, y: rand(285, 360) },
+      { x: 1405, y: HEIGHT / 2 },
+    ];
+  }
+
+  const points: Point[] = [
     { x: 95, y: HEIGHT / 2 },
-    { x: 275, y: rand(160, 300) },
-    { x: 490, y: rand(485, 625) },
-    { x: 710, y: rand(160, 300) },
-    { x: 930, y: rand(485, 625) },
-    { x: 1160, y: rand(165, 310) },
+    { x: 285, y: rand(215, 315) },
+    { x: 505, y: rand(445, 545) },
+    { x: 725, y: rand(215, 315) },
+    { x: 945, y: rand(445, 545) },
+    { x: 1165, y: rand(220, 330) },
     { x: 1405, y: HEIGHT / 2 },
   ];
 
-  if (level >= 4) {
-    points.splice(3, 0, { x: 610, y: rand(320, 450) });
-  }
-
-  if (level >= 7) {
-    points.splice(6, 0, { x: 1050, y: rand(320, 455) });
-  }
-
-  if (level >= 10) {
-    points.splice(2, 0, { x: 390, y: rand(315, 455) });
-  }
+  if (level >= 6) points.splice(3, 0, { x: 615, y: rand(335, 425) });
+  if (level >= 10) points.splice(6, 0, { x: 1055, y: rand(335, 425) });
+  if (level >= 14) points.splice(2, 0, { x: 395, y: rand(335, 425) });
 
   return points;
 }
@@ -112,68 +165,154 @@ function pointOnPath(path: Point[], progress: number) {
 }
 
 function makeHazards(level: number, path: Point[], corridorWidth: number) {
+  const settings = getLevelSettings(level);
   const hazards: Hazard[] = [];
-  const count = Math.min(3 + level * 2, 30);
-
   let tries = 0;
 
-  while (hazards.length < count && tries < 1800) {
+  const slots = [0.15, 0.26, 0.37, 0.48, 0.59, 0.7, 0.81, 0.9];
+
+  while (hazards.length < settings.hazardCount && tries < 3500) {
     tries++;
 
-    const base = pointOnPath(path, rand(0.12, 0.88));
-    const angle = rand(0, Math.PI * 2);
-    const offset = rand(0, corridorWidth * 0.23);
+    const slot = slots[hazards.length % slots.length] + rand(-0.025, 0.025);
+    const base = pointOnPath(path, Math.max(0.12, Math.min(0.9, slot)));
 
-    const r = rand(Math.max(10, 30 - level), Math.max(17, 45 - level));
-    const speed = Math.min(1.15, 0.22 + level * 0.055);
+    const angle = rand(0, Math.PI * 2);
+    const offset = rand(corridorWidth * 0.08, corridorWidth * 0.23);
+    const r = rand(settings.minRadius, settings.maxRadius);
+
+    const x = base.x + Math.cos(angle) * offset;
+    const y = base.y + Math.sin(angle) * offset;
+
+    const moving = Math.random() < settings.movingChance;
+    const modes: HazardMode[] =
+      level < 10
+        ? ["horizontal", "vertical", "orbit"]
+        : ["horizontal", "vertical", "orbit", "diagonal"];
+
+    const mode: HazardMode = moving
+      ? modes[Math.floor(Math.random() * modes.length)]
+      : "still";
 
     const h: Hazard = {
       id: Date.now() + tries + hazards.length,
-      x: base.x + Math.cos(angle) * offset,
-      y: base.y + Math.sin(angle) * offset,
+      x,
+      y,
+      startX: x,
+      startY: y,
       r,
-      dx: rand(-speed, speed),
-      dy: rand(-speed, speed),
+      mode,
+      amp: rand(settings.motionAmp * 0.45, settings.motionAmp * 0.9),
+      speed: rand(settings.motionSpeed * 0.65, settings.motionSpeed),
+      phase: rand(0, Math.PI * 2),
     };
 
-    if (dist(h, path[0]) < 155) continue;
-    if (dist(h, path[path.length - 1]) < 155) continue;
-    if (distToPath(h, path) > corridorWidth / 2 - h.r - 5) continue;
+    if (dist(h, path[0]) < 190) continue;
+    if (dist(h, path[path.length - 1]) < 190) continue;
+    if (h.y < 120 || h.y > HEIGHT - 120) continue;
 
-    const overlaps = hazards.some((o) => dist(o, h) < o.r + h.r + 24);
+    const pathDist = distToPath(h, path);
+
+    if (pathDist > corridorWidth / 2 - r - 10) continue;
+    if (pathDist < r * 0.35 && level <= 8) continue;
+
+    const overlaps = hazards.some((o) => dist(o, h) < o.r + h.r + 42);
     if (overlaps) continue;
 
     hazards.push(h);
   }
 
+  if (level >= 4) {
+    const blockerCount = Math.min(2 + Math.floor(level / 3), 8);
+
+    for (let i = 0; i < blockerCount; i++) {
+      const x = rand(260, 1240);
+      const y = i % 2 === 0 ? rand(90, 145) : rand(HEIGHT - 145, HEIGHT - 90);
+
+      hazards.push({
+        id: Date.now() + 9000 + i,
+        x,
+        y,
+        startX: x,
+        startY: y,
+        r: rand(28, 40),
+        mode: level >= 9 ? "horizontal" : "still",
+        amp: rand(12, 26),
+        speed: 0.00055,
+        phase: rand(0, Math.PI * 2),
+      });
+    }
+  }
+
   return hazards;
+}
+
+function updateHazardPosition(h: Hazard, elapsed: number): Hazard {
+  if (h.mode === "still") return h;
+
+  const wave = Math.sin(elapsed * h.speed + h.phase);
+  const wave2 = Math.cos(elapsed * h.speed + h.phase);
+
+  let x = h.startX;
+  let y = h.startY;
+
+  if (h.mode === "horizontal") x = h.startX + wave * h.amp;
+  if (h.mode === "vertical") y = h.startY + wave * h.amp;
+
+  if (h.mode === "orbit") {
+    x = h.startX + wave * h.amp * 0.72;
+    y = h.startY + wave2 * h.amp * 0.72;
+  }
+
+  if (h.mode === "diagonal") {
+    x = h.startX + wave * h.amp * 0.72;
+    y = h.startY + wave * h.amp * 0.5;
+  }
+
+  return {
+    ...h,
+    x: Math.max(h.r, Math.min(WIDTH - h.r, x)),
+    y: Math.max(h.r, Math.min(HEIGHT - h.r, y)),
+  };
 }
 
 export default function PrecisionTrace() {
   const savedRef = useRef(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const levelStartRef = useRef(Date.now());
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [timeLeft, setTimeLeft] = useState(GAME_TIME);
   const [level, setLevel] = useState(1);
   const [cleared, setCleared] = useState(0);
+  const [crashes, setCrashes] = useState(0);
   const [path, setPath] = useState<Point[]>([]);
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [trail, setTrail] = useState<TrailPoint[]>([]);
   const [message, setMessage] = useState(
-    "Press start. Memorize the flashing circles, then trace."
+    "Press start. Memorize the hazards, then trace the safe route."
   );
 
-  const corridorWidth = Math.max(100, 245 - level * 8);
-  const playerRadius = 9;
-  const studyTime = Math.max(2400, 6200 - level * 230);
+  const settings = getLevelSettings(level);
+  const corridorWidth = settings.corridorWidth;
+  const studyTime = settings.studyTime;
+  const playerRadius = 5;
   const progressPercent = Math.round((timeLeft / GAME_TIME) * 100);
-  const score = cleared * 350 + timeLeft * 5 + level * 30;
+
+  const score = Math.max(
+    0,
+    cleared * 520 + level * 50 + timeLeft * 4 - crashes * 105
+  );
 
   const pathD = useMemo(() => {
     if (!path.length) return "";
     return path.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
   }, [path]);
+
+  const trailPoints = useMemo(
+    () => trail.map((p) => `${p.x},${p.y}`).join(" "),
+    [trail]
+  );
 
   function getPoint(e: React.PointerEvent<HTMLDivElement>): Point | null {
     const rect = boardRef.current?.getBoundingClientRect();
@@ -187,21 +326,23 @@ export default function PrecisionTrace() {
 
   function buildLevel(nextLevel: number) {
     const newPath = makePath(nextLevel);
-    const newWidth = Math.max(100, 245 - nextLevel * 8);
+    const newSettings = getLevelSettings(nextLevel);
+
+    levelStartRef.current = Date.now();
 
     setPath(newPath);
-    setHazards(makeHazards(nextLevel, newPath, newWidth));
+    setHazards(makeHazards(nextLevel, newPath, newSettings.corridorWidth));
     setTrail([]);
     setPhase("study");
-    setMessage("Memorize the flashing red circles. They will disappear.");
+    setMessage("Memorize the red hazards. They keep moving after they vanish.");
   }
 
   function startGame() {
     savedRef.current = false;
-
     setTimeLeft(GAME_TIME);
     setLevel(1);
     setCleared(0);
+    setCrashes(0);
     setTrail([]);
     buildLevel(1);
   }
@@ -209,13 +350,14 @@ export default function PrecisionTrace() {
   function crash(reason: string) {
     if (phase === "crashed" || phase === "gameOver") return;
 
+    setCrashes((c) => c + 1);
     setPhase("crashed");
     setTrail([]);
-    setMessage(reason);
+    setMessage(`${reason} Resetting route.`);
 
     setTimeout(() => {
       buildLevel(level);
-    }, 750);
+    }, 650);
   }
 
   function completeLevel() {
@@ -223,7 +365,7 @@ export default function PrecisionTrace() {
 
     setCleared((c) => c + 1);
     setLevel(next);
-    setMessage("Level cleared. New pattern loading.");
+    setMessage("Route cleared. Loading next pattern.");
     buildLevel(next);
   }
 
@@ -233,15 +375,15 @@ export default function PrecisionTrace() {
     const p = getPoint(e);
     if (!p || !path[0]) return;
 
-    if (dist(p, path[0]) > 66) {
-      setMessage("Start inside the green circle.");
+    if (dist(p, path[0]) > 74) {
+      setMessage("Start inside the green node.");
       return;
     }
 
     e.currentTarget.setPointerCapture(e.pointerId);
     setPhase("tracing");
     setTrail([{ ...p, t: Date.now() }]);
-    setMessage("Trace to yellow. Hidden circles still count.");
+    setMessage("Trace to the gold node. Hidden hazards are still moving.");
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
@@ -257,27 +399,25 @@ export default function PrecisionTrace() {
       { ...p, t: now },
     ]);
 
-    if (distToPath(p, path) > corridorWidth / 2 - playerRadius) {
-      crash("You left the path.");
+    if (distToPath(p, path) > corridorWidth / 2 - playerRadius + 4) {
+      crash("You left the lane.");
       return;
     }
 
-    if (hazards.some((h) => dist(p, h) <= h.r + playerRadius)) {
-      crash("You hit a hidden circle.");
+    const hit = hazards.some((h) => dist(p, h) <= h.r + playerRadius);
+
+    if (hit) {
+      crash("You hit a hidden hazard.");
       return;
     }
 
     const finish = path[path.length - 1];
 
-    if (dist(p, finish) < 70) {
-      completeLevel();
-    }
+    if (dist(p, finish) < 76) completeLevel();
   }
 
   function handlePointerUp() {
-    if (phase === "tracing") {
-      crash("You lifted your mouse.");
-    }
+    if (phase === "tracing") crash("You lifted your mouse.");
   }
 
   useEffect(() => {
@@ -285,7 +425,7 @@ export default function PrecisionTrace() {
 
     const timer = setTimeout(() => {
       setPhase("ready");
-      setMessage("Circles hidden. Start from green and trace to yellow.");
+      setMessage("Hazards hidden. Start from green and trace to gold.");
     }, studyTime);
 
     return () => clearTimeout(timer);
@@ -316,7 +456,8 @@ export default function PrecisionTrace() {
 
     savedRef.current = true;
 
-    const accuracy = cleared + level > 0 ? cleared / (cleared + level) : 0;
+    const accuracy =
+      cleared + crashes > 0 ? cleared / Math.max(1, cleared + crashes) : 0;
 
     saveScore({
       gameId: "precision-trace",
@@ -327,89 +468,76 @@ export default function PrecisionTrace() {
     }).then((result) => {
       console.log("PRECISION TRACE SAVE RESULT:", result);
     });
-  }, [phase, score, cleared, level]);
+  }, [phase, score, cleared, crashes]);
 
   useEffect(() => {
-    if (phase !== "study") return;
+    if (phase !== "study" && phase !== "ready" && phase !== "tracing") return;
 
     const mover = setInterval(() => {
-      setHazards((old) =>
-        old.map((h) => {
-          let x = h.x + h.dx;
-          let y = h.y + h.dy;
-          let dx = h.dx;
-          let dy = h.dy;
-
-          if (x < h.r || x > WIDTH - h.r) dx *= -1;
-          if (y < h.r || y > HEIGHT - h.r) dy *= -1;
-
-          return {
-            ...h,
-            x: Math.max(h.r, Math.min(WIDTH - h.r, x)),
-            y: Math.max(h.r, Math.min(HEIGHT - h.r, y)),
-            dx,
-            dy,
-          };
-        })
-      );
+      const elapsed = Date.now() - levelStartRef.current;
+      setHazards((old) => old.map((h) => updateHazardPosition(h, elapsed)));
     }, 16);
 
     return () => clearInterval(mover);
   }, [phase]);
 
   return (
-    <div className="min-h-screen overflow-hidden bg-black px-5 py-6 text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(217,70,239,0.30),transparent_30%),radial-gradient(circle_at_82%_2%,rgba(14,165,233,0.24),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(16,185,129,0.16),transparent_35%)]" />
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.026)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.026)_1px,transparent_1px)] bg-[size:44px_44px]" />
+    <div className="min-h-screen overflow-hidden bg-[#02030a] px-5 py-6 text-white">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(168,85,247,0.22),transparent_33%),radial-gradient(circle_at_86%_10%,rgba(14,165,233,0.18),transparent_30%),radial-gradient(circle_at_50%_105%,rgba(16,185,129,0.14),transparent_34%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:54px_54px] opacity-20" />
 
       <div className="relative mx-auto max-w-[1580px]">
-        <div className="mb-5 rounded-[2rem] border border-white/10 bg-white/[0.065] p-5 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
-            <div>
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-fuchsia-200">
-                  Wednesday Game
-                </span>
-                <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-emerald-200">
-                  Memory + Precision
-                </span>
-                <span className="rounded-full border border-sky-300/30 bg-sky-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-sky-200">
-                  2 Minute Run
-                </span>
+        <div className="mb-5 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.055] shadow-2xl backdrop-blur-xl">
+          <div className="relative p-5">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(217,70,239,0.15),transparent_35%),radial-gradient(circle_at_95%_40%,rgba(56,189,248,0.10),transparent_35%)]" />
+
+            <div className="relative flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
+              <div>
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                  <Pill color="fuchsia">Wednesday Game</Pill>
+                  <Pill color="emerald">Memory + Precision</Pill>
+                  <Pill color="sky">3 Minute Run</Pill>
+                </div>
+
+                <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+                  Precision{" "}
+                  <span className="bg-gradient-to-r from-fuchsia-300 via-sky-300 to-emerald-300 bg-clip-text text-transparent">
+                    Trace
+                  </span>
+                </h1>
+
+                <p className="mt-3 max-w-4xl text-lg font-medium text-zinc-300">
+                  Memorize the moving hazards, then trace the seamless energy
+                  corridor without touching hidden danger zones.
+                </p>
               </div>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
-                Precision <span className="text-fuchsia-300">Trace</span>
-              </h1>
-
-              <p className="mt-3 max-w-4xl text-lg font-medium text-zinc-300">
-                Memorize the flashing hazards, then trace the glowing route from
-                middle-left to middle-right without touching hidden danger zones.
-              </p>
+              <button
+                onClick={startGame}
+                className="group rounded-2xl bg-white px-9 py-4 text-xl font-black text-zinc-950 shadow-2xl shadow-fuchsia-950/40 transition hover:scale-[1.03] hover:bg-zinc-100 active:scale-95"
+              >
+                <span className="bg-gradient-to-r from-fuchsia-600 via-sky-600 to-emerald-600 bg-clip-text text-transparent">
+                  {phase === "idle"
+                    ? "Start Game"
+                    : phase === "gameOver"
+                      ? "Play Again"
+                      : "Restart"}
+                </span>
+              </button>
             </div>
-
-            <button
-              onClick={startGame}
-              className="rounded-2xl bg-gradient-to-r from-fuchsia-300 via-sky-300 to-emerald-300 px-9 py-4 text-xl font-black text-zinc-950 shadow-xl shadow-fuchsia-950/50 transition hover:scale-[1.03]"
-            >
-              {phase === "idle"
-                ? "Start Game"
-                : phase === "gameOver"
-                  ? "Play Again"
-                  : "Restart"}
-            </button>
           </div>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
           <Stat label="Level" value={level} detail="Current route" />
           <Stat label="Cleared" value={cleared} detail="Successful traces" />
+          <Stat label="Crashes" value={crashes} detail="Penalty count" />
           <Stat label="Time" value={timeLeft} detail="Seconds left" />
           <Stat label="Score" value={score} detail="Live total" />
         </div>
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.055] p-4 shadow-2xl backdrop-blur-xl">
-          <div className="mb-4 h-3 overflow-hidden rounded-full border border-white/10 bg-zinc-950">
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-4 shadow-2xl backdrop-blur-xl">
+          <div className="mb-4 h-3 overflow-hidden rounded-full border border-white/10 bg-black/70">
             <div
               className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-sky-300 to-fuchsia-300 transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
@@ -424,8 +552,9 @@ export default function PrecisionTrace() {
             onPointerCancel={handlePointerUp}
             onPointerLeave={handlePointerUp}
             className={[
-              "relative aspect-[1500/760] w-full overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950",
+              "relative aspect-[1500/760] w-full overflow-hidden rounded-[1.75rem] border border-white/10",
               "touch-none select-none cursor-crosshair shadow-2xl",
+              "bg-[#030712]",
               phase === "crashed" ? "ring-4 ring-red-400" : "",
             ].join(" ")}
           >
@@ -434,7 +563,23 @@ export default function PrecisionTrace() {
               className="absolute inset-0 h-full w-full"
             >
               <defs>
-                <filter id="glow">
+                <filter id="massiveGlow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="34" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
+                <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="18" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
+                <filter id="tightGlow" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="8" result="blur" />
                   <feMerge>
                     <feMergeNode in="blur" />
@@ -442,119 +587,116 @@ export default function PrecisionTrace() {
                   </feMerge>
                 </filter>
 
-                <filter id="heavyGlow">
-                  <feGaussianBlur stdDeviation="16" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-
-                <linearGradient
-                  id="pathGradient"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="0%"
-                >
-                  <stop offset="0%" stopColor="rgba(52,211,153,0.38)" />
-                  <stop offset="50%" stopColor="rgba(217,70,239,0.42)" />
-                  <stop offset="100%" stopColor="rgba(251,191,36,0.38)" />
+                <linearGradient id="boardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#020617" />
+                  <stop offset="48%" stopColor="#07111f" />
+                  <stop offset="100%" stopColor="#030712" />
                 </linearGradient>
 
-                <linearGradient
-                  id="trailGradient"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="0%"
-                >
-                  <stop offset="0%" stopColor="rgb(56,189,248)" />
-                  <stop offset="50%" stopColor="rgb(217,70,239)" />
-                  <stop offset="100%" stopColor="rgb(255,255,255)" />
+                <radialGradient id="laneCore" cx="50%" cy="50%" r="70%">
+                  <stop offset="0%" stopColor="rgba(125,211,252,0.22)" />
+                  <stop offset="55%" stopColor="rgba(34,211,238,0.15)" />
+                  <stop offset="100%" stopColor="rgba(59,130,246,0.08)" />
+                </radialGradient>
+
+                <linearGradient id="laneEdge" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="rgba(52,211,153,0.16)" />
+                  <stop offset="45%" stopColor="rgba(56,189,248,0.26)" />
+                  <stop offset="100%" stopColor="rgba(217,70,239,0.15)" />
                 </linearGradient>
+
+                <linearGradient id="trailGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="rgb(52,211,153)" />
+                  <stop offset="50%" stopColor="rgb(56,189,248)" />
+                  <stop offset="100%" stopColor="rgb(217,70,239)" />
+                </linearGradient>
+
+                <pattern id="microGrid" width="44" height="44" patternUnits="userSpaceOnUse">
+                  <path
+                    d="M 44 0 L 0 0 0 44"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.035)"
+                    strokeWidth="1"
+                  />
+                </pattern>
               </defs>
 
-              <rect width={WIDTH} height={HEIGHT} fill="rgb(2,6,23)" />
+              <rect width={WIDTH} height={HEIGHT} fill="url(#boardBg)" />
+              <rect width={WIDTH} height={HEIGHT} fill="url(#microGrid)" opacity="0.55" />
 
-              <g opacity="0.4">
-                {Array.from({ length: 18 }).map((_, i) => (
-                  <line
-                    key={`v-${i}`}
-                    x1={i * 90}
-                    y1="0"
-                    x2={i * 90}
-                    y2={HEIGHT}
-                    stroke="rgba(255,255,255,0.035)"
-                    strokeWidth="2"
+              <circle cx="160" cy="95" r="330" fill="rgba(217,70,239,0.10)" />
+              <circle cx="1340" cy="650" r="360" fill="rgba(14,165,233,0.10)" />
+              <circle cx="760" cy="380" r="520" fill="rgba(15,23,42,0.35)" />
+
+              {pathD && (
+                <>
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="rgba(14,165,233,0.10)"
+                    strokeWidth={corridorWidth + 105}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    filter="url(#massiveGlow)"
                   />
-                ))}
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <line
-                    key={`h-${i}`}
-                    x1="0"
-                    y1={i * 90}
-                    x2={WIDTH}
-                    y2={i * 90}
-                    stroke="rgba(255,255,255,0.035)"
-                    strokeWidth="2"
+
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="url(#laneEdge)"
+                    strokeWidth={corridorWidth + 54}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.72"
+                    filter="url(#softGlow)"
                   />
-                ))}
-              </g>
 
-              <circle cx="150" cy="110" r="220" fill="rgba(217,70,239,0.11)" />
-              <circle cx="1280" cy="620" r="260" fill="rgba(14,165,233,0.1)" />
-              <circle
-                cx="760"
-                cy="380"
-                r="340"
-                fill="rgba(255,255,255,0.025)"
-              />
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="rgba(2,6,23,0.36)"
+                    strokeWidth={corridorWidth + 24}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
 
-              <path
-                d={pathD}
-                fill="none"
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth={corridorWidth + 34}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="url(#laneCore)"
+                    strokeWidth={corridorWidth}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.98"
+                  />
 
-              <path
-                d={pathD}
-                fill="none"
-                stroke="url(#pathGradient)"
-                strokeWidth={corridorWidth}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                filter="url(#heavyGlow)"
-              />
-
-              <path
-                d={pathD}
-                fill="none"
-                stroke="rgba(255,255,255,0.44)"
-                strokeWidth="6"
-                strokeDasharray="22 20"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.045)"
+                    strokeWidth={Math.max(22, corridorWidth * 0.24)}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.75"
+                  />
+                </>
+              )}
 
               {trail.length > 1 && (
                 <>
                   <polyline
-                    points={trail.map((p) => `${p.x},${p.y}`).join(" ")}
+                    points={trailPoints}
                     fill="none"
                     stroke="url(#trailGradient)"
-                    strokeWidth="15"
+                    strokeWidth="19"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    filter="url(#heavyGlow)"
+                    filter="url(#tightGlow)"
                   />
                   <polyline
-                    points={trail.map((p) => `${p.x},${p.y}`).join(" ")}
+                    points={trailPoints}
                     fill="none"
-                    stroke="white"
+                    stroke="rgba(255,255,255,0.86)"
                     strokeWidth="4"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -563,19 +705,19 @@ export default function PrecisionTrace() {
               )}
 
               {path[0] && (
-                <g filter="url(#glow)">
+                <g filter="url(#tightGlow)">
                   <circle
                     cx={path[0].x}
                     cy={path[0].y}
-                    r="61"
-                    fill="rgba(52,211,153,0.24)"
+                    r="72"
+                    fill="rgba(52,211,153,0.14)"
                   />
                   <circle
                     cx={path[0].x}
                     cy={path[0].y}
-                    r="47"
-                    fill="rgb(52,211,153)"
-                    stroke="white"
+                    r="52"
+                    fill="rgba(52,211,153,0.95)"
+                    stroke="rgba(255,255,255,0.95)"
                     strokeWidth="6"
                   />
                   <text
@@ -592,19 +734,19 @@ export default function PrecisionTrace() {
               )}
 
               {path[path.length - 1] && (
-                <g filter="url(#glow)">
+                <g filter="url(#tightGlow)">
                   <circle
                     cx={path[path.length - 1].x}
                     cy={path[path.length - 1].y}
-                    r="61"
-                    fill="rgba(251,191,36,0.24)"
+                    r="72"
+                    fill="rgba(251,191,36,0.14)"
                   />
                   <circle
                     cx={path[path.length - 1].x}
                     cy={path[path.length - 1].y}
-                    r="47"
-                    fill="rgb(251,191,36)"
-                    stroke="white"
+                    r="52"
+                    fill="rgba(251,191,36,0.98)"
+                    stroke="rgba(255,255,255,0.95)"
                     strokeWidth="6"
                   />
                   <text
@@ -625,35 +767,43 @@ export default function PrecisionTrace() {
                   <circle
                     cx={h.x}
                     cy={h.y}
-                    r={h.r + 12}
-                    fill="rgba(239,68,68,0.18)"
-                    filter="url(#glow)"
+                    r={h.r + 18}
+                    fill="rgba(239,68,68,0.12)"
+                    filter="url(#tightGlow)"
                   />
                   <circle
                     cx={h.x}
                     cy={h.y}
                     r={h.r}
-                    fill="rgb(239,68,68)"
-                    stroke="white"
+                    fill="rgba(248,113,113,0.96)"
+                    stroke="rgba(255,255,255,0.88)"
                     strokeWidth="3"
                     style={{
                       animation:
                         phase === "study"
-                          ? `pulse 0.42s ease-in-out ${
+                          ? `hazardPulse 0.65s ease-in-out ${
                               i * 0.045
                             }s infinite alternate`
                           : "none",
                     }}
                   />
+                  <circle
+                    cx={h.x - h.r * 0.28}
+                    cy={h.y - h.r * 0.32}
+                    r={Math.max(4, h.r * 0.18)}
+                    fill="rgba(255,255,255,0.55)"
+                  />
                 </g>
               ))}
             </svg>
 
-            <div className="absolute left-5 top-5 rounded-full border border-white/10 bg-black/65 px-5 py-2 text-sm font-black uppercase tracking-widest text-zinc-200 shadow-xl backdrop-blur">
+            <div className="pointer-events-none absolute inset-0 rounded-[1.75rem] shadow-[inset_0_0_80px_rgba(0,0,0,0.55)]" />
+
+            <div className="absolute left-5 top-5 rounded-full border border-white/10 bg-black/60 px-5 py-2 text-sm font-black uppercase tracking-widest text-zinc-200 shadow-xl backdrop-blur">
               {phase === "study"
                 ? "Memorize"
                 : phase === "ready"
-                  ? "Ready To Trace"
+                  ? "Ready"
                   : phase === "tracing"
                     ? "Tracing"
                     : phase === "crashed"
@@ -661,34 +811,35 @@ export default function PrecisionTrace() {
                       : phase}
             </div>
 
-            <div className="absolute right-5 top-5 rounded-full border border-white/10 bg-black/65 px-5 py-2 text-sm font-black uppercase tracking-widest text-zinc-200 shadow-xl backdrop-blur">
-              Path Width: {Math.round(corridorWidth)}
+            <div className="absolute right-5 top-5 rounded-full border border-white/10 bg-black/60 px-5 py-2 text-sm font-black uppercase tracking-widest text-zinc-200 shadow-xl backdrop-blur">
+              Lane Width: {Math.round(corridorWidth)}
             </div>
 
             {phase === "study" && (
               <div className="pointer-events-none absolute left-1/2 top-7 -translate-x-1/2 rounded-3xl border border-red-300/30 bg-black/45 px-7 py-4 text-center shadow-2xl backdrop-blur-md">
                 <p className="text-2xl font-black text-red-300">
-                  MEMORIZE FAST
+                  MEMORIZE MOVEMENT
                 </p>
                 <p className="mt-1 text-sm font-bold text-zinc-300">
-                  Hazards vanish in {(studyTime / 1000).toFixed(1)} seconds.
+                  Hazards disappear, but their hitboxes keep moving.
                 </p>
               </div>
             )}
 
             {phase === "idle" && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="max-w-lg rounded-[2rem] border border-white/10 bg-zinc-950/70 p-8 text-center shadow-2xl backdrop-blur-md">
+                <div className="max-w-lg rounded-[2rem] border border-white/10 bg-zinc-950/75 p-8 text-center shadow-2xl backdrop-blur-md">
                   <p className="text-5xl font-black">Ready?</p>
                   <p className="mt-4 text-lg font-semibold text-zinc-300">
-                    Press start. Red circles flash first, then disappear.
+                    Memorize the hazards, wait for them to vanish, then trace
+                    the glowing corridor from green to gold.
                   </p>
                 </div>
               </div>
             )}
 
             {phase === "gameOver" && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/55">
                 <div className="max-w-lg rounded-[2rem] border border-white/10 bg-zinc-950/90 p-8 text-center shadow-2xl backdrop-blur-xl">
                   <p className="text-5xl font-black text-fuchsia-300">
                     Game Over
@@ -710,13 +861,50 @@ export default function PrecisionTrace() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-black/35 px-5 py-4 text-sm font-bold text-zinc-400">
-              <span className="text-fuchsia-300">Goal:</span> memorize hazards
-              → trace path → clear levels → survive 2 minutes.
+              <span className="text-fuchsia-300">Goal:</span> stay inside the
+              energy lane → avoid hidden moving hazards → survive 3 minutes.
             </div>
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes hazardPulse {
+          from {
+            transform: scale(0.94);
+            opacity: 0.74;
+          }
+          to {
+            transform: scale(1.08);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
+  );
+}
+
+function Pill({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color: "fuchsia" | "emerald" | "sky";
+}) {
+  const classes = {
+    fuchsia:
+      "border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-200",
+    emerald:
+      "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
+    sky: "border-sky-300/30 bg-sky-300/10 text-sky-200",
+  };
+
+  return (
+    <span
+      className={`rounded-full border px-4 py-1 text-xs font-black uppercase tracking-[0.3em] ${classes[color]}`}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -730,7 +918,7 @@ function Stat({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-xl backdrop-blur-xl">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-xl backdrop-blur-xl transition hover:bg-white/[0.08]">
       <p className="text-xs font-black uppercase tracking-[0.25em] text-fuchsia-300">
         {label}
       </p>

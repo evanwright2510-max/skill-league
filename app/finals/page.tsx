@@ -29,13 +29,23 @@ type WeeklyPlayer = {
 
 function getWeekStart() {
   const now = new Date();
-  const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
 
-  const monday = new Date(now);
-  monday.setDate(diff);
+  const local = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
 
-  return monday.toISOString().split("T")[0];
+  const day = local.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+
+  local.setDate(local.getDate() + diff);
+
+  const year = local.getFullYear();
+  const month = String(local.getMonth() + 1).padStart(2, "0");
+  const date = String(local.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${date}`;
 }
 
 function getLeaguePoints(rank: number) {
@@ -56,7 +66,8 @@ export default function FinalsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const weekStart = getWeekStart();
+  const weekStart = useMemo(() => getWeekStart(), []);
+
   const today = new Date().getDay();
   const isSaturday = today === 6;
 
@@ -78,19 +89,25 @@ export default function FinalsPage() {
 
       if (scoresError) {
         console.error("FINALS SCORES ERROR:", scoresError);
+        setScores([]);
         setLoading(false);
         return;
       }
 
-      setScores(scoresData || []);
+      const rows = scoresData || [];
+      setScores(rows);
 
-      const userIds = [...new Set((scoresData || []).map((s) => s.user_id))];
+      const userIds = [...new Set(rows.map((s) => s.user_id))];
 
       if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
+        const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("id, username, display_name")
           .in("id", userIds);
+
+        if (profilesError) {
+          console.error("FINALS PROFILES ERROR:", profilesError);
+        }
 
         const mapped: Record<string, Profile> = {};
 
@@ -99,13 +116,15 @@ export default function FinalsPage() {
         }
 
         setProfiles(mapped);
+      } else {
+        setProfiles({});
       }
 
       setLoading(false);
     }
 
     loadFinalsData();
-  }, [weekStart, supabase]);
+  }, [supabase, weekStart]);
 
   const leaderboard = useMemo(() => {
     const groupedGames: Record<string, ScoreRow[]> = {};
@@ -123,7 +142,7 @@ export default function FinalsPage() {
     const players: Record<string, WeeklyPlayer> = {};
 
     for (const key in groupedGames) {
-      const ranked = groupedGames[key].sort((a, b) => b.score - a.score);
+      const ranked = [...groupedGames[key]].sort((a, b) => b.score - a.score);
 
       ranked.forEach((score, index) => {
         const rank = index + 1;
@@ -147,9 +166,17 @@ export default function FinalsPage() {
       });
     }
 
-    return Object.values(players).sort(
-      (a, b) => b.totalLeaguePoints - a.totalLeaguePoints
-    );
+    return Object.values(players).sort((a, b) => {
+      if (b.totalLeaguePoints !== a.totalLeaguePoints) {
+        return b.totalLeaguePoints - a.totalLeaguePoints;
+      }
+
+      if (b.wins !== a.wins) {
+        return b.wins - a.wins;
+      }
+
+      return b.gamesPlayed - a.gamesPlayed;
+    });
   }, [scores]);
 
   const qualifiers = leaderboard.slice(0, 5);
@@ -177,17 +204,21 @@ export default function FinalsPage() {
             Top 5 weekly players qualify for the final.
           </p>
 
+          <p className="mt-2 text-sm font-bold text-zinc-500">
+            Week Start: {weekStart}
+          </p>
+
           <div className="mt-6 flex flex-wrap gap-4">
             <Link
               href="/menu"
-              className="rounded-2xl bg-emerald-300 px-5 py-3 font-black text-black"
+              className="rounded-2xl bg-emerald-300 px-5 py-3 font-black text-black transition hover:bg-emerald-200"
             >
               Menu
             </Link>
 
             <Link
               href="/leaderboard/weekly"
-              className="rounded-2xl border border-white/10 bg-white/[0.08] px-5 py-3 font-black"
+              className="rounded-2xl border border-white/10 bg-white/[0.08] px-5 py-3 font-black transition hover:bg-white/[0.14]"
             >
               Weekly Leaderboard
             </Link>
@@ -200,13 +231,14 @@ export default function FinalsPage() {
           {!loading && !currentUserId && (
             <div>
               <h2 className="text-3xl font-black">Login Required</h2>
+
               <p className="mt-3 text-zinc-400">
                 You need to log in to check finals eligibility.
               </p>
 
               <Link
                 href="/login"
-                className="mt-6 inline-block rounded-2xl bg-emerald-300 px-6 py-4 font-black text-black"
+                className="mt-6 inline-block rounded-2xl bg-emerald-300 px-6 py-4 font-black text-black transition hover:bg-emerald-200"
               >
                 Login
               </Link>
@@ -216,8 +248,13 @@ export default function FinalsPage() {
           {!loading && currentUserId && !isSaturday && (
             <div>
               <h2 className="text-3xl font-black">Finals Locked</h2>
+
               <p className="mt-3 text-zinc-400">
-                Finals open on Saturday. Keep climbing the weekly leaderboard.
+                Finals open on Saturday. Top 5 players qualify.
+              </p>
+
+              <p className="mt-2 text-sm text-zinc-500">
+                Your qualification will be based on this week’s leaderboard.
               </p>
             </div>
           )}
@@ -225,6 +262,7 @@ export default function FinalsPage() {
           {!loading && currentUserId && isSaturday && !isQualified && (
             <div>
               <h2 className="text-3xl font-black">Not Qualified</h2>
+
               <p className="mt-3 text-zinc-400">
                 You did not finish in the top 5 this week.
               </p>
@@ -241,12 +279,12 @@ export default function FinalsPage() {
                 You are eligible for the Saturday final.
               </p>
 
-              <button
-                disabled
-                className="mt-6 rounded-2xl bg-emerald-300 px-6 py-4 font-black text-black opacity-60"
+              <Link
+                href="/games/saturday-final"
+                className="mt-6 inline-block rounded-2xl bg-emerald-300 px-6 py-4 font-black text-black transition hover:bg-emerald-200"
               >
-                Final Game Coming Next
-              </button>
+                Play Final Game
+              </Link>
             </div>
           )}
         </div>
@@ -259,14 +297,17 @@ export default function FinalsPage() {
             <div>Wins</div>
           </div>
 
-          {qualifiers.length === 0 && (
+          {!loading && qualifiers.length === 0 && (
             <div className="p-6 text-zinc-400">No qualifiers yet.</div>
           )}
 
           {qualifiers.map((player, index) => (
             <div
               key={player.user_id}
-              className="grid grid-cols-4 items-center border-b border-white/5 px-5 py-4 last:border-b-0"
+              className={[
+                "grid grid-cols-4 items-center border-b border-white/5 px-5 py-4 last:border-b-0",
+                player.user_id === currentUserId ? "bg-emerald-300/[0.08]" : "",
+              ].join(" ")}
             >
               <div className="font-black text-emerald-300">#{index + 1}</div>
 
