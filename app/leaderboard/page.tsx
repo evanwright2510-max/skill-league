@@ -74,8 +74,7 @@ export default function DailyLeaderboardPage() {
         .select("*")
         .eq("played_on", today)
         .eq("game_id", todayGameId)
-        .eq("flagged", false)
-        .order("score", { ascending: false });
+        .or("flagged.is.null,flagged.eq.false");
 
       if (scoresError) {
         console.error("DAILY LEADERBOARD ERROR:", scoresError);
@@ -83,9 +82,34 @@ export default function DailyLeaderboardPage() {
         return;
       }
 
-      setScores(scoresData || []);
+      const rows = scoresData || [];
 
-      const userIds = [...new Set((scoresData || []).map((s) => s.user_id))];
+      const firstAttemptByPlayer: Record<string, ScoreRow> = {};
+
+      for (const row of rows) {
+        const current = firstAttemptByPlayer[row.user_id];
+
+        if (
+          !current ||
+          new Date(row.created_at).getTime() <
+            new Date(current.created_at).getTime()
+        ) {
+          firstAttemptByPlayer[row.user_id] = row;
+        }
+      }
+
+      const filtered = Object.values(firstAttemptByPlayer).sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+
+        return (
+          new Date(a.created_at).getTime() -
+          new Date(b.created_at).getTime()
+        );
+      });
+
+      setScores(filtered);
+
+      const userIds = [...new Set(filtered.map((s) => s.user_id))];
 
       if (userIds.length > 0) {
         const { data: profilesData } = await supabase
@@ -155,7 +179,14 @@ export default function DailyLeaderboardPage() {
               href="/leaderboard/weekly"
               className="rounded-2xl border border-white/10 bg-white/[0.08] px-5 py-3 font-black"
             >
-              Weekly Leaderboard
+              Weekly
+            </Link>
+
+            <Link
+              href="/leaderboard/all-time"
+              className="rounded-2xl bg-yellow-300 px-5 py-3 font-black text-black"
+            >
+              All-Time
             </Link>
 
             <Link

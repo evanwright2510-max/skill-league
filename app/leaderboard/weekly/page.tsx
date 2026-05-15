@@ -43,8 +43,10 @@ const GAMES = [
 function getWeekStart() {
   const now = new Date();
   const local = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   const day = local.getDay();
   const diff = day === 0 ? -6 : 1 - day;
+
   local.setDate(local.getDate() + diff);
 
   const y = local.getFullYear();
@@ -160,7 +162,10 @@ export default function WeeklyLeaderboardPage() {
       gameRankings[game.id] = ranked.map((row, index) => {
         const rank = index + 1;
         const points = getLeaguePoints(rank);
-        const attempts = gameRows.filter((r) => r.user_id === row.user_id).length;
+
+        const attempts = gameRows.filter(
+          (r) => r.user_id === row.user_id
+        ).length;
 
         if (!overall[row.user_id]) {
           overall[row.user_id] = {
@@ -216,12 +221,15 @@ export default function WeeklyLeaderboardPage() {
   }, [scores]);
 
   const activeRows =
-    activeTab === "overall" ? rankings.overall : rankings.games[activeTab] || [];
+    activeTab === "overall"
+      ? rankings.overall
+      : rankings.games[activeTab] || [];
 
   const activeTitle =
     activeTab === "overall"
       ? "Overall Weekly Ranking"
-      : GAMES.find((game) => game.id === activeTab)?.name || "Game Ranking";
+      : GAMES.find((game) => game.id === activeTab)?.name ||
+        "Game Ranking";
 
   return (
     <main className="min-h-screen bg-black px-6 py-10 text-white">
@@ -236,8 +244,8 @@ export default function WeeklyLeaderboardPage() {
           </h1>
 
           <p className="mt-3 text-zinc-400">
-            First attempt counts for each game. Each game gets its own ranking.
-            Overall ranking is built from placement points.
+            First attempt counts for each game. Each game gets its own
+            ranking. Overall ranking is built from placement points.
           </p>
 
           <p className="mt-2 text-sm font-bold text-zinc-500">
@@ -250,6 +258,13 @@ export default function WeeklyLeaderboardPage() {
               className="rounded-2xl bg-emerald-300 px-5 py-3 font-black text-black transition hover:bg-emerald-200"
             >
               Menu
+            </Link>
+
+            <Link
+              href="/leaderboard/all-time"
+              className="rounded-2xl bg-yellow-300 px-5 py-3 font-black text-black transition hover:bg-yellow-200"
+            >
+              All-Time
             </Link>
 
             <button
@@ -284,6 +299,7 @@ export default function WeeklyLeaderboardPage() {
         <section className="mb-4 flex items-end justify-between">
           <div>
             <h2 className="text-3xl font-black">{activeTitle}</h2>
+
             <p className="mt-1 text-sm text-zinc-500">
               {activeTab === "overall"
                 ? "Overall is calculated from each game’s placement points."
@@ -300,24 +316,35 @@ export default function WeeklyLeaderboardPage() {
           <div className="grid grid-cols-6 border-b border-white/10 bg-white/[0.08] px-5 py-4 text-sm font-black uppercase tracking-widest text-zinc-400">
             <div>Rank</div>
             <div className="col-span-2">Player</div>
-            <div>{activeTab === "overall" ? "League Pts" : "Score"}</div>
-            <div>{activeTab === "overall" ? "Games" : "Attempts"}</div>
+            <div>
+              {activeTab === "overall" ? "League Pts" : "Score"}
+            </div>
+            <div>
+              {activeTab === "overall" ? "Games" : "Attempts"}
+            </div>
             <div>Wins</div>
           </div>
 
           {loading && (
-            <div className="p-6 text-zinc-400">Loading leaderboard...</div>
+            <div className="p-6 text-zinc-400">
+              Loading leaderboard...
+            </div>
           )}
 
           {!loading && activeRows.length === 0 && (
-            <div className="p-6 text-zinc-400">No scores yet.</div>
+            <div className="p-6 text-zinc-400">
+              No scores yet.
+            </div>
           )}
 
           {!loading &&
             activeRows.map((player, index) => {
               const profile = profiles[player.user_id];
+
               const displayName = getDisplayName(profile);
-              const qualified = activeTab === "overall" && index < 5;
+
+              const qualified =
+                activeTab === "overall" && index < 5;
 
               return (
                 <div
@@ -332,7 +359,9 @@ export default function WeeklyLeaderboardPage() {
                   </div>
 
                   <div className="col-span-2">
-                    <p className="font-bold text-zinc-200">{displayName}</p>
+                    <p className="font-bold text-zinc-200">
+                      {displayName}
+                    </p>
 
                     {qualified && (
                       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">
@@ -353,7 +382,9 @@ export default function WeeklyLeaderboardPage() {
                       : player.attempts}
                   </div>
 
-                  <div className="font-bold text-zinc-300">{player.wins}</div>
+                  <div className="font-bold text-zinc-300">
+                    {player.wins}
+                  </div>
                 </div>
               );
             })}
