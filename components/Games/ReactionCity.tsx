@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { saveScore } from "@/lib/saveScore";
 
 const GAME_TIME = 60;
 const TRACK_WIDTH = 1000;
+const INPUT_COOLDOWN_MS = 140;
 
 type Phase = "idle" | "playing" | "gameOver";
 type Feedback = "perfect" | "good" | "miss" | null;
@@ -14,170 +15,137 @@ type TargetZone = {
   width: number;
 };
 
+type Snapshot = {
+  phase: Phase;
+  timeLeft: number;
+  score: number;
+  hits: number;
+  misses: number;
+  combo: number;
+  bestCombo: number;
+  level: number;
+  markerX: number;
+  zone: TargetZone;
+  feedback: Feedback;
+  message: string;
+};
+
 function rand(min: number, max: number) {
   return Math.random() * (max - min) + min;
 }
 
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
 function makeZone(level: number): TargetZone {
-  const width = Math.max(44, 150 - level * 7);
-  const start = rand(60, TRACK_WIDTH - width - 60);
+  const width = clamp(160 - level * 8, 48, 160);
+  const start = rand(70, TRACK_WIDTH - width - 70);
   return { start, width };
 }
 
+function getSpeed(level: number) {
+  return clamp(0.55 + level * 0.06, 0.55, 1.55);
+}
+
 export default function ReactionCity() {
-  const animationRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const lastFrameRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const lastInputRef = useRef(0);
   const savedRef = useRef(false);
 
+  const phaseRef = useRef<Phase>("idle");
   const markerRef = useRef(0);
   const directionRef = useRef(1);
+  const scoreRef = useRef(0);
+  const hitsRef = useRef(0);
+  const missesRef = useRef(0);
+  const comboRef = useRef(0);
+  const bestComboRef = useRef(0);
+  const levelRef = useRef(1);
   const zoneRef = useRef<TargetZone>(makeZone(1));
-  const phaseRef = useRef<Phase>("idle");
 
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [timeLeft, setTimeLeft] = useState(GAME_TIME);
-  const [score, setScore] = useState(0);
-  const [hits, setHits] = useState(0);
-  const [misses, setMisses] = useState(0);
-  const [combo, setCombo] = useState(0);
-  const [bestCombo, setBestCombo] = useState(0);
-  const [level, setLevel] = useState(1);
-  const [markerX, setMarkerX] = useState(0);
-  const [zone, setZone] = useState<TargetZone>(() => zoneRef.current);
-  const [feedback, setFeedback] = useState<Feedback>(null);
-  const [message, setMessage] = useState(
-    "Press start. Lock the cursor inside the green zone."
-  );
+  const [snap, setSnap] = useState<Snapshot>({
+    phase: "idle",
+    timeLeft: GAME_TIME,
+    score: 0,
+    hits: 0,
+    misses: 0,
+    combo: 0,
+    bestCombo: 0,
+    level: 1,
+    markerX: 0,
+    zone: zoneRef.current,
+    feedback: null,
+    message: "Press start. Lock the cursor inside the green zone.",
+  });
 
-  useEffect(() => {
-    phaseRef.current = phase;
-  }, [phase]);
+  const sync = useCallback((patch?: Partial<Snapshot>) => {
+    setSnap((prev) => ({
+      ...prev,
+      phase: phaseRef.current,
+      score: scoreRef.current,
+      hits: hitsRef.current,
+      misses: missesRef.current,
+      combo: comboRef.current,
+      bestCombo: bestComboRef.current,
+      level: levelRef.current,
+      markerX: markerRef.current,
+      zone: zoneRef.current,
+      ...patch,
+    }));
+  }, []);
 
-  const progressPercent = Math.round((timeLeft / GAME_TIME) * 100);
-
-  const speed = useMemo(() => {
-    return Math.min(1.65, 0.62 + level * 0.055);
-  }, [level]);
-
-  const markerPercent = (markerX / TRACK_WIDTH) * 100;
-  const zoneLeftPercent = (zone.start / TRACK_WIDTH) * 100;
-  const zoneWidthPercent = (zone.width / TRACK_WIDTH) * 100;
-
-  function setNewZone(nextLevel: number) {
-    const nextZone = makeZone(nextLevel);
-    zoneRef.current = nextZone;
-    setZone(nextZone);
-  }
-
-  function startGame() {
-    savedRef.current = false;
-
-    markerRef.current = 0;
-    directionRef.current = 1;
-
-    const firstZone = makeZone(1);
-    zoneRef.current = firstZone;
-
-    setPhase("playing");
-    setTimeLeft(GAME_TIME);
-    setScore(0);
-    setHits(0);
-    setMisses(0);
-    setCombo(0);
-    setBestCombo(0);
-    setLevel(1);
-    setMarkerX(0);
-    setZone(firstZone);
-    setFeedback(null);
-    setMessage("Click or press SPACE when the marker is inside the green zone.");
-  }
-
-  function handleLock() {
+  const endGame = useCallback(() => {
     if (phaseRef.current !== "playing") return;
 
-    const currentMarker = markerRef.current;
-    const currentZone = zoneRef.current;
+    phaseRef.current = "gameOver";
 
-    const zoneEnd = currentZone.start + currentZone.width;
-    const center = currentZone.start + currentZone.width / 2;
-    const distanceFromCenter = Math.abs(currentMarker - center);
-    const perfectWindow = Math.max(10, currentZone.width * 0.23);
+    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
 
-    const inside = currentMarker >= currentZone.start && currentMarker <= zoneEnd;
-    const perfect = inside && distanceFromCenter <= perfectWindow;
+    sync({
+      phase: "gameOver",
+      timeLeft: 0,
+      feedback: null,
+      message: "Game over.",
+    });
 
-    if (perfect) {
-      setHits((prevHits) => {
-        const newHits = prevHits + 1;
-        const nextLevel = newHits % 4 === 0 ? level + 1 : level;
+    if (!savedRef.current) {
+      savedRef.current = true;
 
-        setLevel(nextLevel);
-        setNewZone(nextLevel);
+      const total = hitsRef.current + missesRef.current;
+      const accuracy = total > 0 ? hitsRef.current / total : 0;
 
-        return newHits;
+      saveScore({
+        gameId: "reaction-lock",
+        score: scoreRef.current,
+        durationSeconds: GAME_TIME,
+        accuracy,
+        attemptNumber: 1,
+      }).then((result) => {
+        console.log("REACTION LOCK SAVE RESULT:", result);
       });
-
-      setCombo((prevCombo) => {
-        const nextCombo = prevCombo + 1;
-        const gained = 150 + nextCombo * 12 + level * 8;
-
-        setScore((s) => s + gained);
-        setBestCombo((b) => Math.max(b, nextCombo));
-        setMessage(`Perfect lock! +${gained}`);
-
-        return nextCombo;
-      });
-
-      setFeedback("perfect");
-    } else if (inside) {
-      setHits((prevHits) => {
-        const newHits = prevHits + 1;
-        const nextLevel = newHits % 4 === 0 ? level + 1 : level;
-
-        setLevel(nextLevel);
-        setNewZone(nextLevel);
-
-        return newHits;
-      });
-
-      setCombo((prevCombo) => {
-        const nextCombo = prevCombo + 1;
-        const gained = 85 + nextCombo * 6 + level * 5;
-
-        setScore((s) => s + gained);
-        setBestCombo((b) => Math.max(b, nextCombo));
-        setMessage(`Good hit! +${gained}`);
-
-        return nextCombo;
-      });
-
-      setFeedback("good");
-    } else {
-      const penalty = Math.min(120, 35 + level * 5);
-
-      setScore((s) => Math.max(0, s - penalty));
-      setMisses((m) => m + 1);
-      setCombo(0);
-      setFeedback("miss");
-      setMessage(`Miss. -${penalty}`);
-      setNewZone(level);
     }
+  }, [sync]);
 
-    window.setTimeout(() => setFeedback(null), 220);
-  }
+  const gameLoop = useCallback(
+    (now: number) => {
+      if (phaseRef.current !== "playing") return;
 
-  useEffect(() => {
-    if (phase !== "playing") return;
+      if (lastFrameRef.current === null) lastFrameRef.current = now;
+      if (startTimeRef.current === null) startTimeRef.current = now;
 
-    function animate(now: number) {
-      if (lastTimeRef.current === null) {
-        lastTimeRef.current = now;
-      }
+      const delta = now - lastFrameRef.current;
+      lastFrameRef.current = now;
 
-      const delta = now - lastTimeRef.current;
-      lastTimeRef.current = now;
+      const elapsed = (now - startTimeRef.current) / 1000;
+      const timeLeft = Math.max(0, GAME_TIME - elapsed);
 
-      let next = markerRef.current + directionRef.current * speed * delta;
+      let next =
+        markerRef.current +
+        directionRef.current * getSpeed(levelRef.current) * delta;
 
       if (next >= TRACK_WIDTH) {
         next = TRACK_WIDTH;
@@ -190,67 +158,124 @@ export default function ReactionCity() {
       }
 
       markerRef.current = next;
-      setMarkerX(next);
 
-      animationRef.current = requestAnimationFrame(animate);
+      sync({ timeLeft: Math.ceil(timeLeft) });
+
+      if (timeLeft <= 0) {
+        endGame();
+        return;
+      }
+
+      frameRef.current = requestAnimationFrame(gameLoop);
+    },
+    [endGame, sync]
+  );
+
+  const startGame = useCallback(() => {
+    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+
+    savedRef.current = false;
+    phaseRef.current = "playing";
+    markerRef.current = 0;
+    directionRef.current = 1;
+    scoreRef.current = 0;
+    hitsRef.current = 0;
+    missesRef.current = 0;
+    comboRef.current = 0;
+    bestComboRef.current = 0;
+    levelRef.current = 1;
+    zoneRef.current = makeZone(1);
+    lastFrameRef.current = null;
+    startTimeRef.current = null;
+    lastInputRef.current = 0;
+
+    sync({
+      phase: "playing",
+      timeLeft: GAME_TIME,
+      feedback: null,
+      message: "Click or press SPACE when the marker is inside the green zone.",
+    });
+
+    frameRef.current = requestAnimationFrame(gameLoop);
+  }, [gameLoop, sync]);
+
+  const handleLock = useCallback(() => {
+    if (phaseRef.current !== "playing") return;
+
+    const now = performance.now();
+
+    if (now - lastInputRef.current < INPUT_COOLDOWN_MS) return;
+    lastInputRef.current = now;
+
+    const marker = markerRef.current;
+    const zone = zoneRef.current;
+    const zoneEnd = zone.start + zone.width;
+    const center = zone.start + zone.width / 2;
+
+    const inside = marker >= zone.start && marker <= zoneEnd;
+    const distance = Math.abs(marker - center);
+    const perfectWindow = Math.max(9, zone.width * 0.22);
+    const perfect = inside && distance <= perfectWindow;
+
+    if (inside) {
+      hitsRef.current += 1;
+      comboRef.current += 1;
+      bestComboRef.current = Math.max(bestComboRef.current, comboRef.current);
+
+      const shouldLevelUp = hitsRef.current % 4 === 0;
+      if (shouldLevelUp) levelRef.current += 1;
+
+      const gained = perfect
+        ? 150 + comboRef.current * 12 + levelRef.current * 8
+        : 85 + comboRef.current * 6 + levelRef.current * 5;
+
+      scoreRef.current += gained;
+      zoneRef.current = makeZone(levelRef.current);
+
+      sync({
+        feedback: perfect ? "perfect" : "good",
+        message: perfect ? `Perfect lock! +${gained}` : `Good hit! +${gained}`,
+      });
+    } else {
+      missesRef.current += 1;
+      comboRef.current = 0;
+
+      const penalty = Math.min(130, 35 + levelRef.current * 6);
+      scoreRef.current = Math.max(0, scoreRef.current - penalty);
+      zoneRef.current = makeZone(levelRef.current);
+
+      sync({
+        feedback: "miss",
+        message: `Miss. -${penalty}`,
+      });
     }
 
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      lastTimeRef.current = null;
-    };
-  }, [phase, speed]);
-
-  useEffect(() => {
-    if (phase !== "playing") return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          setPhase("gameOver");
-          setMessage("Game over.");
-          return 0;
-        }
-
-        return t - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase !== "gameOver") return;
-    if (savedRef.current) return;
-
-    savedRef.current = true;
-
-    const accuracy = hits + misses > 0 ? hits / (hits + misses) : 0;
-
-    saveScore({
-      gameId: "reaction-lock",
-      score,
-      durationSeconds: GAME_TIME,
-      accuracy,
-      attemptNumber: 1,
-    }).then((result) => {
-      console.log("REACTION LOCK SAVE RESULT:", result);
-    });
-  }, [phase, score, hits, misses]);
+    window.setTimeout(() => {
+      if (phaseRef.current === "playing") {
+        sync({ feedback: null });
+      }
+    }, 180);
+  }, [sync]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.code === "Space") {
-        e.preventDefault();
-        handleLock();
-      }
+      if (e.code !== "Space") return;
+      e.preventDefault();
+      handleLock();
     }
 
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
+  }, [handleLock]);
+
+  const progressPercent = Math.round((snap.timeLeft / GAME_TIME) * 100);
+  const markerPercent = (snap.markerX / TRACK_WIDTH) * 100;
+  const zoneLeftPercent = (snap.zone.start / TRACK_WIDTH) * 100;
+  const zoneWidthPercent = (snap.zone.width / TRACK_WIDTH) * 100;
 
   return (
     <div className="min-h-screen overflow-hidden bg-black px-5 py-6 text-white">
@@ -262,15 +287,9 @@ export default function ReactionCity() {
           <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-emerald-200">
-                  Friday Game
-                </span>
-                <span className="rounded-full border border-yellow-300/30 bg-yellow-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-yellow-200">
-                  Timing
-                </span>
-                <span className="rounded-full border border-sky-300/30 bg-sky-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-sky-200">
-                  Reaction Lock
-                </span>
+                <Badge color="emerald">Friday Game</Badge>
+                <Badge color="yellow">Timing</Badge>
+                <Badge color="sky">Reaction Lock</Badge>
               </div>
 
               <h1 className="text-5xl font-black tracking-tight md:text-7xl">
@@ -279,17 +298,17 @@ export default function ReactionCity() {
 
               <p className="mt-3 max-w-4xl text-lg font-medium text-zinc-300">
                 The marker sweeps across the track. Click or press space when it
-                enters the green zone.
+                enters the green zone. Perfect center hits score more.
               </p>
             </div>
 
             <button
               onClick={startGame}
-              className="rounded-2xl bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 px-9 py-4 text-xl font-black text-zinc-950 shadow-xl shadow-emerald-950/50 transition hover:scale-[1.03]"
+              className="rounded-2xl bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 px-9 py-4 text-xl font-black text-zinc-950 shadow-xl shadow-emerald-950/50 transition hover:scale-[1.03] active:scale-[0.98]"
             >
-              {phase === "idle"
+              {snap.phase === "idle"
                 ? "Start Game"
-                : phase === "gameOver"
+                : snap.phase === "gameOver"
                 ? "Play Again"
                 : "Restart"}
             </button>
@@ -297,44 +316,44 @@ export default function ReactionCity() {
         </div>
 
         <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
-          <Stat label="Score" value={score} detail="Live total" />
-          <Stat label="Time" value={timeLeft} detail="Seconds left" />
-          <Stat label="Hits" value={hits} detail="Successful locks" />
-          <Stat label="Combo" value={combo} detail="Current streak" />
-          <Stat label="Level" value={level} detail="Speed + smaller zone" />
+          <Stat label="Score" value={snap.score} detail="Live total" />
+          <Stat label="Time" value={snap.timeLeft} detail="Seconds left" />
+          <Stat label="Hits" value={snap.hits} detail="Successful locks" />
+          <Stat label="Combo" value={snap.combo} detail="Current streak" />
+          <Stat label="Level" value={snap.level} detail="Speed + precision" />
         </div>
 
         <div
           className={[
             "rounded-[2rem] border bg-white/[0.055] p-4 shadow-2xl backdrop-blur-xl transition",
-            feedback === "perfect"
+            snap.feedback === "perfect"
               ? "border-yellow-300/70"
-              : feedback === "good"
+              : snap.feedback === "good"
               ? "border-emerald-300/70"
-              : feedback === "miss"
+              : snap.feedback === "miss"
               ? "border-red-300/70"
               : "border-white/10",
           ].join(" ")}
         >
           <div className="mb-4 h-3 overflow-hidden rounded-full border border-white/10 bg-zinc-950">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
 
           <div className="relative min-h-[660px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950 p-8 shadow-2xl">
-            {phase === "idle" && (
+            {snap.phase === "idle" && (
               <CenterOverlay
                 title="Ready?"
                 text="Click start. Lock the moving marker inside the green target zone."
               />
             )}
 
-            {phase === "gameOver" && (
+            {snap.phase === "gameOver" && (
               <CenterOverlay
                 title="Game Over"
-                text={`Final Score: ${score} • Hits: ${hits} • Misses: ${misses} • Best Combo: ${bestCombo}`}
+                text={`Final Score: ${snap.score} • Hits: ${snap.hits} • Misses: ${snap.misses} • Best Combo: ${snap.bestCombo}`}
                 highlight
               />
             )}
@@ -345,11 +364,11 @@ export default function ReactionCity() {
                   Target
                 </p>
                 <p className="mt-2 text-4xl font-black">
-                  {feedback === "perfect"
+                  {snap.feedback === "perfect"
                     ? "PERFECT"
-                    : feedback === "good"
+                    : snap.feedback === "good"
                     ? "LOCKED"
-                    : feedback === "miss"
+                    : snap.feedback === "miss"
                     ? "MISS"
                     : "Hit Green"}
                 </p>
@@ -380,10 +399,10 @@ export default function ReactionCity() {
 
                 <button
                   onClick={handleLock}
-                  disabled={phase !== "playing"}
+                  disabled={snap.phase !== "playing"}
                   className={[
                     "mt-8 w-full rounded-[2rem] px-8 py-6 text-3xl font-black shadow-2xl transition",
-                    phase === "playing"
+                    snap.phase === "playing"
                       ? "bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 text-zinc-950 hover:scale-[1.015] active:scale-[0.99]"
                       : "cursor-not-allowed bg-zinc-800 text-zinc-500",
                   ].join(" ")}
@@ -392,19 +411,45 @@ export default function ReactionCity() {
                 </button>
 
                 <p className="mt-4 text-center text-sm font-bold text-zinc-500">
-                  You can also press{" "}
-                  <span className="text-zinc-300">SPACE</span>.
+                  Press <span className="text-zinc-300">SPACE</span> or click{" "}
+                  <span className="text-zinc-300">LOCK</span>.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 px-5 py-4 text-base font-semibold text-zinc-300">
-            {message}
+            {snap.message}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function Badge({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color: "emerald" | "yellow" | "sky";
+}) {
+  const styles = {
+    emerald:
+      "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
+    yellow: "border-yellow-300/30 bg-yellow-300/10 text-yellow-200",
+    sky: "border-sky-300/30 bg-sky-300/10 text-sky-200",
+  };
+
+  return (
+    <span
+      className={[
+        "rounded-full border px-4 py-1 text-xs font-black uppercase tracking-[0.3em]",
+        styles[color],
+      ].join(" ")}
+    >
+      {children}
+    </span>
   );
 }
 
