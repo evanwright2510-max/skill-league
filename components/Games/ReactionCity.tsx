@@ -119,7 +119,7 @@ export default function ReactionCity() {
       const accuracy = total > 0 ? hitsRef.current / total : 0;
 
       saveScore({
-        gameId: "reaction-lock",
+        gameId: "reaction-city",
         score: scoreRef.current,
         durationSeconds: GAME_TIME,
         accuracy,
