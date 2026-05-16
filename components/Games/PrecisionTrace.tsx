@@ -467,6 +467,25 @@ export default function PrecisionTrace() {
     return () => clearInterval(mover);
   }, [phase]);
 
+  // touchscreen stuff
+  useEffect(() => {
+  const el = boardRef.current;
+  if (!el) return;
+  function preventTouch(e: TouchEvent) {
+    e.preventDefault();
+  }
+  
+  el.addEventListener("touchstart", preventTouch, { passive: false });
+  el.addEventListener("touchmove", preventTouch, { passive: false });
+  el.addEventListener("touchend", preventTouch, { passive: false });
+  
+  return () => {
+    el.removeEventListener("touchstart", preventTouch);
+    el.removeEventListener("touchmove", preventTouch);
+    el.removeEventListener("touchend", preventTouch);
+  };
+  
+}, [phase]);
   // Show rotation prompt on mobile portrait
   if (isPortrait) {
     return <RotatePrompt />;
@@ -560,10 +579,11 @@ export default function PrecisionTrace() {
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
             onPointerLeave={handlePointerUp}
+            onTouchStart={(e) => e.preventDefault()}
+            onTouchMove={(e) => e.preventDefault()}
             className={[
               "relative aspect-[1500/760] w-full overflow-hidden rounded-xl border border-white/10 lg:rounded-[1.75rem]",
-              "touch-none select-none cursor-crosshair shadow-2xl",
-              "bg-[#030712]",
+             "touch-none select-none overscroll-none cursor-crosshair shadow-2xl",               "bg-[#030712]",
               phase === "crashed" ? "ring-4 ring-red-400" : "",
             ].join(" ")}
           >
