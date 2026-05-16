@@ -19,6 +19,7 @@ export default function GameGate({
 
   useEffect(() => {
     async function checkAccess() {
+      console.log("RUNNING GAME GATE", gameId);
       const {
         data: { user },
       } = await supabase.auth.getUser();
