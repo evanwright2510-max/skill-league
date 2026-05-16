@@ -1,5 +1,5 @@
-import SaturdayGame from "../../../components/Games/SaturdayGame";
+import TheGrind from "@/components/Games/TheGrind";
 
-export default function SaturdayFinalPage() {
-  return <SaturdayGame />;
+export default function SaturdayPage() {
+  return <TheGrind />;
 }
