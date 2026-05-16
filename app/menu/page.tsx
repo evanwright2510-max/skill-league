@@ -33,8 +33,8 @@ const games = [
   },
   {
     day: "Friday",
-    title: "Reaction Lock",
-    route: "/games/reaction-lock",
+    title: "Reaction City",
+    route: "/games/reaction-city",
     color: "from-cyan-300 to-indigo-500",
     description: "Lock the moving marker inside the target zone.",
   },

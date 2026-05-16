@@ -18,7 +18,7 @@ export default function PlayPage() {
     } else if (day === 4) {
       router.replace("/games/match-rush");
     } else if (day === 5) {
-      router.replace("/games/reaction-lock");
+      router.replace("/games/reaction-city");
     } else if (day === 6) {
       router.replace("/finals");
     } else {

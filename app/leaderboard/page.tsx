@@ -28,7 +28,7 @@ const gameNames: Record<string, string> = {
   "memory-grid": "Memory Grid",
   "precision-trace": "Precision Trace",
   "match-rush": "Match Rush",
-  "reaction-lock": "Reaction Lock",
+  "reaction-city": "Reaction City",
 };
 
 function getTodayDate() {
@@ -43,7 +43,7 @@ function getTodayGameId() {
     2: "memory-grid",
     3: "precision-trace",
     4: "match-rush",
-    5: "reaction-lock",
+    5: "reaction-city",
   };
 
   return games[day] ?? null;

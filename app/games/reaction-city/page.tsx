@@ -1,5 +1,5 @@
 import ReactionCity from "@/components/Games/ReactionCity";
 
-export default function ReactionLockPage() {
+export default function ReactionCityPage() {
   return <ReactionCity />;
 }
