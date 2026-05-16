@@ -1,5 +1,10 @@
+import GameGate from "@/components/GameGate";
 import ReactionCity from "@/components/Games/ReactionCity";
 
 export default function ReactionCityPage() {
-  return <ReactionCity />;
+  return (
+    <GameGate gameId="reaction-lock">
+      <ReactionCity />
+    </GameGate>
+  );
 }
