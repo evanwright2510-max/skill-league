@@ -3,7 +3,7 @@ import ReactionCity from "@/components/Games/ReactionCity";
 
 export default function ReactionCityPage() {
   return (
-    <GameGate gameId="reaction-lock">
+    <GameGate gameId="reaction-city">
       <ReactionCity />
     </GameGate>
   );
