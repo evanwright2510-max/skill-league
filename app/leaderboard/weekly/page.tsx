@@ -36,7 +36,7 @@ const GAMES = [
   { id: "memory-grid", name: "Memory Grid" },
   { id: "precision-trace", name: "Precision Trace" },
   { id: "match-rush", name: "Match Rush" },
-  { id: "reaction-city", name: "Reaction City" },
+  { id: "reaction-lock", name: "Reaction City" },
   { id: "saturday-final", name: "Saturday Final" },
 ];
 
