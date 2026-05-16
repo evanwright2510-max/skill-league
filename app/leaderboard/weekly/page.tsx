@@ -37,7 +37,7 @@ const GAMES = [
   { id: "precision-trace", name: "Precision Trace" },
   { id: "match-rush", name: "Match Rush" },
   { id: "reaction-lock", name: "Reaction City" },
-  { id: "saturday-final", name: "Saturday Final" },
+  { id: "the-grind", name: "Saturday Final" },
 ];
 
 function getWeekStart() {
