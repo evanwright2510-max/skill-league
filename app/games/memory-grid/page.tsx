@@ -1,10 +1,10 @@
 import GameGate from "@/components/GameGate";
-import MemoryGrid from "@/components/Games/MemoryGrid";
+import PrecisionTrace from "@/components/Games/PrecisionTrace";
 
-export default function MemoryGridPage() {
+export default function PrecisionTracePage() {
   return (
-    <GameGate gameId="memory-grid">
-      <MemoryGrid />
+    <GameGate gameId="precision-trace">
+      <PrecisionTrace />
     </GameGate>
   );
 }

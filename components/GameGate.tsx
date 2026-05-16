@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { canPlayOfficial, GameId } from "@/lib/gameAccess";
+import { canPlayOfficial } from "@/lib/gameAccess";
 import { createClient } from "@/utils/supabase/client";
 
 export default function GameGate({
   gameId,
   children,
 }: {
-  gameId: GameId;
+  gameId: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -19,7 +19,6 @@ export default function GameGate({
 
   useEffect(() => {
     async function checkAccess() {
-      console.log("RUNNING GAME GATE", gameId);
       const {
         data: { user },
       } = await supabase.auth.getUser();
