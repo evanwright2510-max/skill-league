@@ -193,7 +193,7 @@ export default function ReactionCity() {
       phase: "playing",
       timeLeft: GAME_TIME,
       feedback: null,
-      message: "Click or press SPACE when the marker is inside the green zone.",
+      message: "Tap LOCK or press SPACE when the marker is inside the green zone.",
     });
 
     frameRef.current = requestAnimationFrame(gameLoop);
@@ -278,147 +278,178 @@ export default function ReactionCity() {
   const zoneWidthPercent = (snap.zone.width / TRACK_WIDTH) * 100;
 
   return (
-    <div className="min-h-screen overflow-hidden bg-black px-5 py-6 text-white">
+    <div className="min-h-screen overflow-hidden bg-black px-3 py-4 text-white md:px-5 md:py-6">
+      {/* Background effects */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(34,197,94,0.24),transparent_30%),radial-gradient(circle_at_85%_5%,rgba(250,204,21,0.20),transparent_30%),radial-gradient(circle_at_50%_100%,rgba(59,130,246,0.18),transparent_35%)]" />
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.026)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.026)_1px,transparent_1px)] bg-[size:46px_46px]" />
 
       <div className="relative mx-auto max-w-[1450px]">
-        <div className="mb-5 rounded-[2rem] border border-white/10 bg-white/[0.065] p-5 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
+
+        {/* Header */}
+        <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.065] p-4 shadow-2xl backdrop-blur-xl md:mb-5 md:rounded-[2rem] md:p-5">
+          <div className="flex flex-col justify-between gap-4 md:gap-5 xl:flex-row xl:items-end">
             <div>
-              <div className="mb-3 flex flex-wrap items-center gap-3">
+              <div className="mb-2 flex flex-wrap items-center gap-2 md:mb-3 md:gap-3">
                 <Badge color="emerald">Friday Game</Badge>
                 <Badge color="yellow">Timing</Badge>
                 <Badge color="sky">Reaction Lock</Badge>
               </div>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+              <h1 className="text-4xl font-black tracking-tight md:text-5xl lg:text-7xl">
                 Reaction <span className="text-emerald-300">Lock</span>
               </h1>
 
-              <p className="mt-3 max-w-4xl text-lg font-medium text-zinc-300">
-                The marker sweeps across the track. Click or press space when it
+              <p className="mt-2 max-w-4xl text-sm font-medium text-zinc-300 md:mt-3 md:text-lg">
+                The marker sweeps across the track. Tap or press space when it
                 enters the green zone. Perfect center hits score more.
               </p>
             </div>
 
             <button
               onClick={startGame}
-              className="rounded-2xl bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 px-9 py-4 text-xl font-black text-zinc-950 shadow-xl shadow-emerald-950/50 transition hover:scale-[1.03] active:scale-[0.98]"
+              className="w-full rounded-2xl bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 px-6 py-3 text-lg font-black text-zinc-950 shadow-xl shadow-emerald-950/50 transition hover:scale-[1.03] active:scale-[0.98] md:w-auto md:px-9 md:py-4 md:text-xl"
             >
               {snap.phase === "idle"
                 ? "Start Game"
                 : snap.phase === "gameOver"
-                ? "Play Again"
-                : "Restart"}
+                  ? "Play Again"
+                  : "Restart"}
             </button>
           </div>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
+        {/* Stats */}
+        <div className="mb-4 grid grid-cols-3 gap-2 md:mb-5 md:grid-cols-5 md:gap-3">
           <Stat label="Score" value={snap.score} detail="Live total" />
           <Stat label="Time" value={snap.timeLeft} detail="Seconds left" />
-          <Stat label="Hits" value={snap.hits} detail="Successful locks" />
-          <Stat label="Combo" value={snap.combo} detail="Current streak" />
-          <Stat label="Level" value={snap.level} detail="Speed + precision" />
+          <Stat label="Hits" value={snap.hits} detail="Locks" />
+          <Stat label="Combo" value={snap.combo} detail="Streak" className="hidden md:block" />
+          <Stat label="Level" value={snap.level} detail="Speed" className="hidden md:block" />
         </div>
 
+        {/* Mobile compact stats */}
+        <div className="mb-4 flex items-center justify-center gap-4 md:hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black uppercase text-emerald-300">Combo</span>
+            <span className="text-2xl font-black">{snap.combo}x</span>
+          </div>
+          <div className="h-6 w-px bg-white/20" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black uppercase text-emerald-300">Level</span>
+            <span className="text-2xl font-black">{snap.level}</span>
+          </div>
+        </div>
+
+        {/* Game area */}
         <div
           className={[
-            "rounded-[2rem] border bg-white/[0.055] p-4 shadow-2xl backdrop-blur-xl transition",
+            "rounded-2xl border bg-white/[0.055] p-3 shadow-2xl backdrop-blur-xl transition md:rounded-[2rem] md:p-4",
             snap.feedback === "perfect"
               ? "border-yellow-300/70"
               : snap.feedback === "good"
-              ? "border-emerald-300/70"
-              : snap.feedback === "miss"
-              ? "border-red-300/70"
-              : "border-white/10",
+                ? "border-emerald-300/70"
+                : snap.feedback === "miss"
+                  ? "border-red-300/70"
+                  : "border-white/10",
           ].join(" ")}
         >
-          <div className="mb-4 h-3 overflow-hidden rounded-full border border-white/10 bg-zinc-950">
+          {/* Progress bar */}
+          <div className="mb-3 h-2 overflow-hidden rounded-full border border-white/10 bg-zinc-950 md:mb-4 md:h-3">
             <div
               className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
 
-          <div className="relative min-h-[660px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950 p-8 shadow-2xl">
+          <div className="relative min-h-[360px] overflow-hidden rounded-2xl border border-white/10 bg-zinc-950 p-4 shadow-2xl md:min-h-[660px] md:rounded-[1.75rem] md:p-8">
+            {/* Idle overlay */}
             {snap.phase === "idle" && (
               <CenterOverlay
                 title="Ready?"
-                text="Click start. Lock the moving marker inside the green target zone."
+                text="Tap start. Lock the moving marker inside the green target zone."
               />
             )}
 
+            {/* Game over overlay */}
             {snap.phase === "gameOver" && (
               <CenterOverlay
                 title="Game Over"
-                text={`Final Score: ${snap.score} • Hits: ${snap.hits} • Misses: ${snap.misses} • Best Combo: ${snap.bestCombo}`}
+                text={`Score: ${snap.score} • Hits: ${snap.hits} • Misses: ${snap.misses} • Best Combo: ${snap.bestCombo}`}
                 highlight
               />
             )}
 
-            <div className="relative z-10 flex min-h-[590px] flex-col items-center justify-center gap-12">
-              <div className="rounded-[2rem] border border-white/10 bg-black/35 px-8 py-5 text-center shadow-2xl backdrop-blur-xl">
-                <p className="text-xs font-black uppercase tracking-[0.35em] text-zinc-500">
+            <div className="relative z-10 flex min-h-[320px] flex-col items-center justify-center gap-6 md:min-h-[590px] md:gap-12">
+
+              {/* Feedback display */}
+              <div className="rounded-2xl border border-white/10 bg-black/35 px-6 py-3 text-center shadow-2xl backdrop-blur-xl md:rounded-[2rem] md:px-8 md:py-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 md:text-xs">
                   Target
                 </p>
-                <p className="mt-2 text-4xl font-black">
+                <p className="mt-1 text-2xl font-black md:mt-2 md:text-4xl">
                   {snap.feedback === "perfect"
                     ? "PERFECT"
                     : snap.feedback === "good"
-                    ? "LOCKED"
-                    : snap.feedback === "miss"
-                    ? "MISS"
-                    : "Hit Green"}
+                      ? "LOCKED"
+                      : snap.feedback === "miss"
+                        ? "MISS"
+                        : "Hit Green"}
                 </p>
               </div>
 
+              {/* Track area */}
               <div className="w-full max-w-[1150px]">
-                <div className="relative h-32 rounded-[2rem] border border-white/10 bg-black/50 p-5 shadow-2xl backdrop-blur-xl">
-                  <div className="absolute inset-5 rounded-[1.5rem] border border-white/10 bg-zinc-950">
+
+                {/* Track */}
+                <div className="relative h-20 rounded-2xl border border-white/10 bg-black/50 p-3 shadow-2xl backdrop-blur-xl md:h-32 md:rounded-[2rem] md:p-5">
+                  <div className="absolute inset-3 rounded-xl border border-white/10 bg-zinc-950 md:inset-5 md:rounded-[1.5rem]">
+                    {/* Green zone */}
                     <div
-                      className="absolute top-0 h-full rounded-xl border-2 border-emerald-100 bg-emerald-400/80 shadow-lg shadow-emerald-400/40"
+                      className="absolute top-0 h-full rounded-lg border-2 border-emerald-100 bg-emerald-400/80 shadow-lg shadow-emerald-400/40 md:rounded-xl"
                       style={{
                         left: `${zoneLeftPercent}%`,
                         width: `${zoneWidthPercent}%`,
                       }}
                     />
 
+                    {/* Marker line */}
                     <div
-                      className="absolute top-0 h-full w-[4px] rounded-full bg-white shadow-[0_0_22px_rgba(255,255,255,0.9)]"
+                      className="absolute top-0 h-full w-[3px] rounded-full bg-white shadow-[0_0_22px_rgba(255,255,255,0.9)] md:w-[4px]"
                       style={{ left: `${markerPercent}%` }}
                     />
 
+                    {/* Marker ball */}
                     <div
-                      className="absolute top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-gradient-to-br from-sky-300 to-fuchsia-300 shadow-2xl shadow-sky-300/40"
+                      className="absolute top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-gradient-to-br from-sky-300 to-fuchsia-300 shadow-2xl shadow-sky-300/40 md:h-16 md:w-16 md:border-4"
                       style={{ left: `${markerPercent}%` }}
                     />
                   </div>
                 </div>
 
+                {/* Lock button */}
                 <button
                   onClick={handleLock}
                   disabled={snap.phase !== "playing"}
                   className={[
-                    "mt-8 w-full rounded-[2rem] px-8 py-6 text-3xl font-black shadow-2xl transition",
+                    "mt-4 w-full rounded-2xl px-6 py-5 text-2xl font-black shadow-2xl transition md:mt-8 md:rounded-[2rem] md:px-8 md:py-6 md:text-3xl",
                     snap.phase === "playing"
-                      ? "bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 text-zinc-950 hover:scale-[1.015] active:scale-[0.99]"
+                      ? "bg-gradient-to-r from-emerald-300 via-yellow-300 to-sky-300 text-zinc-950 hover:scale-[1.015] active:scale-[0.97]"
                       : "cursor-not-allowed bg-zinc-800 text-zinc-500",
                   ].join(" ")}
                 >
                   LOCK
                 </button>
 
-                <p className="mt-4 text-center text-sm font-bold text-zinc-500">
-                  Press <span className="text-zinc-300">SPACE</span> or click{" "}
-                  <span className="text-zinc-300">LOCK</span>.
+                <p className="mt-3 text-center text-xs font-bold text-zinc-500 md:mt-4 md:text-sm">
+                  Press <span className="text-zinc-300">SPACE</span> or tap{" "}
+                  <span className="text-zinc-300">LOCK</span>
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 px-5 py-4 text-base font-semibold text-zinc-300">
+          {/* Feedback message */}
+          <div className="mt-3 rounded-xl border border-white/10 bg-black/35 px-4 py-3 text-sm font-semibold text-zinc-300 md:mt-4 md:rounded-2xl md:px-5 md:py-4 md:text-base">
             {snap.message}
           </div>
         </div>
@@ -435,8 +466,7 @@ function Badge({
   color: "emerald" | "yellow" | "sky";
 }) {
   const styles = {
-    emerald:
-      "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
+    emerald: "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
     yellow: "border-yellow-300/30 bg-yellow-300/10 text-yellow-200",
     sky: "border-sky-300/30 bg-sky-300/10 text-sky-200",
   };
@@ -444,7 +474,7 @@ function Badge({
   return (
     <span
       className={[
-        "rounded-full border px-4 py-1 text-xs font-black uppercase tracking-[0.3em]",
+        "rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.3em] md:px-4 md:text-xs",
         styles[color],
       ].join(" ")}
     >
@@ -457,18 +487,20 @@ function Stat({
   label,
   value,
   detail,
+  className = "",
 }: {
   label: string;
   value: number;
   detail: string;
+  className?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-xl backdrop-blur-xl">
-      <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-300">
+    <div className={`rounded-xl border border-white/10 bg-white/[0.06] p-3 shadow-xl backdrop-blur-xl md:rounded-2xl md:p-5 ${className}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300 md:text-xs">
         {label}
       </p>
-      <p className="mt-1 text-4xl font-black">{value}</p>
-      <p className="mt-1 text-xs font-semibold text-zinc-500">{detail}</p>
+      <p className="mt-0.5 text-2xl font-black md:mt-1 md:text-4xl">{value}</p>
+      <p className="mt-0.5 text-[10px] font-semibold text-zinc-500 md:mt-1 md:text-xs">{detail}</p>
     </div>
   );
 }
@@ -483,17 +515,17 @@ function CenterOverlay({
   highlight?: boolean;
 }) {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45">
-      <div className="max-w-xl rounded-[2rem] border border-white/10 bg-zinc-950/90 p-8 text-center shadow-2xl backdrop-blur-xl">
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 p-4">
+      <div className="max-w-xl rounded-2xl border border-white/10 bg-zinc-950/90 p-6 text-center shadow-2xl backdrop-blur-xl md:rounded-[2rem] md:p-8">
         <p
           className={[
-            "text-5xl font-black",
+            "text-3xl font-black md:text-5xl",
             highlight ? "text-emerald-300" : "text-white",
           ].join(" ")}
         >
           {title}
         </p>
-        <p className="mt-4 text-lg font-semibold text-zinc-300">{text}</p>
+        <p className="mt-3 text-sm font-semibold text-zinc-300 md:mt-4 md:text-lg">{text}</p>
       </div>
     </div>
   );

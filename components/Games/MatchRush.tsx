@@ -229,31 +229,33 @@ export default function MatchRush() {
   }, [phase, score, rounds, wrongClicks]);
 
   return (
-    <div className="min-h-screen overflow-hidden bg-black px-5 py-6 text-white">
+    <div className="min-h-screen overflow-hidden bg-black px-3 py-4 text-white md:px-5 md:py-6">
+      {/* Background gradients */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(251,191,36,0.26),transparent_28%),radial-gradient(circle_at_85%_10%,rgba(236,72,153,0.24),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(34,211,238,0.18),transparent_35%)]" />
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:46px_46px]" />
 
       <div className="relative mx-auto max-w-[1500px]">
-        <div className="mb-5 rounded-[2rem] border border-white/10 bg-white/[0.065] p-5 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
+        {/* Header */}
+        <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.065] p-4 shadow-2xl backdrop-blur-xl md:mb-5 md:rounded-[2rem] md:p-5">
+          <div className="flex flex-col justify-between gap-4 md:gap-5 xl:flex-row xl:items-end">
             <div>
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-amber-200">
+              <div className="mb-2 flex flex-wrap items-center gap-2 md:mb-3 md:gap-3">
+                <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.3em] text-amber-200 md:px-4 md:text-xs">
                   Thursday Game
                 </span>
-                <span className="rounded-full border border-pink-300/30 bg-pink-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-pink-200">
+                <span className="rounded-full border border-pink-300/30 bg-pink-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.3em] text-pink-200 md:px-4 md:text-xs">
                   Visual Speed
                 </span>
-                <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.3em] text-cyan-200">
+                <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.3em] text-cyan-200 md:px-4 md:text-xs">
                   Match Rush
                 </span>
               </div>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+              <h1 className="text-4xl font-black tracking-tight md:text-5xl lg:text-7xl">
                 Match <span className="text-amber-300">Rush</span>
               </h1>
 
-              <p className="mt-3 max-w-4xl text-lg font-medium text-zinc-300">
+              <p className="mt-2 max-w-4xl text-sm font-medium text-zinc-300 md:mt-3 md:text-lg">
                 Two cartoon cards. Exactly one symbol matches. Find it fast,
                 build your combo, and avoid wrong clicks.
               </p>
@@ -261,7 +263,7 @@ export default function MatchRush() {
 
             <button
               onClick={startGame}
-              className="rounded-2xl bg-gradient-to-r from-amber-300 via-pink-300 to-cyan-300 px-9 py-4 text-xl font-black text-zinc-950 shadow-xl shadow-amber-950/40 transition hover:scale-[1.03]"
+              className="w-full rounded-2xl bg-gradient-to-r from-amber-300 via-pink-300 to-cyan-300 px-6 py-3 text-lg font-black text-zinc-950 shadow-xl shadow-amber-950/40 transition hover:scale-[1.03] md:w-auto md:px-9 md:py-4 md:text-xl"
             >
               {phase === "idle"
                 ? "Start Game"
@@ -272,21 +274,37 @@ export default function MatchRush() {
           </div>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
+        {/* Stats row */}
+        <div className="mb-4 grid grid-cols-3 gap-2 md:mb-5 md:grid-cols-5 md:gap-3">
           <Stat label="Score" value={score} detail="Live total" />
           <Stat label="Time" value={timeLeft} detail="Seconds left" />
-          <Stat label="Rounds" value={rounds} detail="Correct matches" />
-          <Stat label="Combo" value={combo} detail="Streak bonus" />
+          <Stat label="Rounds" value={rounds} detail="Correct" />
+          <Stat label="Combo" value={combo} detail="Streak" className="hidden md:block" />
           <Stat
             label="Level"
             value={level}
-            detail={`${symbolsPerCard} icons/card`}
+            detail={`${symbolsPerCard} icons`}
+            className="hidden md:block"
           />
         </div>
 
+        {/* Mobile-only compact stats */}
+        <div className="mb-4 flex items-center justify-center gap-4 md:hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black uppercase text-amber-300">Combo</span>
+            <span className="text-2xl font-black">{combo}x</span>
+          </div>
+          <div className="h-6 w-px bg-white/20" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black uppercase text-amber-300">Level</span>
+            <span className="text-2xl font-black">{level}</span>
+          </div>
+        </div>
+
+        {/* Game area */}
         <div
           className={[
-            "rounded-[2rem] border bg-white/[0.055] p-4 shadow-2xl backdrop-blur-xl transition",
+            "rounded-2xl border bg-white/[0.055] p-3 shadow-2xl backdrop-blur-xl transition md:rounded-[2rem] md:p-4",
             flash === "correct"
               ? "border-emerald-300/60"
               : flash === "wrong"
@@ -294,14 +312,15 @@ export default function MatchRush() {
                 : "border-white/10",
           ].join(" ")}
         >
-          <div className="mb-4 h-3 overflow-hidden rounded-full border border-white/10 bg-zinc-950">
+          {/* Progress bar */}
+          <div className="mb-3 h-2 overflow-hidden rounded-full border border-white/10 bg-zinc-950 md:mb-4 md:h-3">
             <div
               className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-pink-300 to-amber-300 transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
 
-          <div className="relative min-h-[680px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950 p-6 shadow-2xl">
+          <div className="relative min-h-[400px] overflow-hidden rounded-2xl border border-white/10 bg-zinc-950 p-3 shadow-2xl md:min-h-[680px] md:rounded-[1.75rem] md:p-6">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(251,191,36,0.08),transparent_55%)]" />
 
             {phase === "idle" && (
@@ -314,12 +333,13 @@ export default function MatchRush() {
             {phase === "gameOver" && (
               <CenterOverlay
                 title="Game Over"
-                text={`Final Score: ${score} • Correct Rounds: ${rounds} • Wrong Clicks: ${wrongClicks} • Best Combo: ${bestCombo}`}
+                text={`Score: ${score} • Rounds: ${rounds} • Wrong: ${wrongClicks} • Best Combo: ${bestCombo}`}
                 highlight
               />
             )}
 
-            <div className="relative grid min-h-[610px] gap-8 lg:grid-cols-[1fr_220px_1fr] lg:items-center">
+            {/* Cards layout - stacks vertically on mobile */}
+            <div className="relative flex min-h-[360px] flex-col items-center gap-4 md:min-h-[610px] md:gap-8 lg:grid lg:grid-cols-[1fr_220px_1fr] lg:items-center">
               <SpotCard
                 title="Card A"
                 items={round.left}
@@ -329,21 +349,22 @@ export default function MatchRush() {
                 side="left"
               />
 
-              <div className="flex flex-col items-center justify-center gap-4">
-                <div className="rounded-full border border-white/10 bg-black/55 px-6 py-4 text-center shadow-xl backdrop-blur">
-                  <p className="text-xs font-black uppercase tracking-[0.35em] text-zinc-500">
+              {/* Center info - horizontal on mobile, vertical on desktop */}
+              <div className="flex items-center gap-3 md:flex-col md:gap-4">
+                <div className="rounded-full border border-white/10 bg-black/55 px-4 py-2 text-center shadow-xl backdrop-blur md:px-6 md:py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 md:text-xs">
                     Find
                   </p>
-                  <p className="mt-1 text-4xl font-black text-white">
+                  <p className="text-2xl font-black text-white md:mt-1 md:text-4xl">
                     1 Match
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 text-center shadow-xl backdrop-blur">
-                  <p className="text-sm font-black uppercase tracking-[0.25em] text-amber-300">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-center shadow-xl backdrop-blur md:rounded-3xl md:p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-300 md:text-sm">
                     Combo
                   </p>
-                  <p className="text-5xl font-black">{combo}x</p>
+                  <p className="text-3xl font-black md:text-5xl">{combo}x</p>
                 </div>
               </div>
 
@@ -358,12 +379,13 @@ export default function MatchRush() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_390px]">
-            <div className="rounded-2xl border border-white/10 bg-black/35 px-5 py-4 text-base font-semibold text-zinc-300">
+          {/* Feedback row */}
+          <div className="mt-3 flex flex-col gap-2 md:mt-4 md:grid md:grid-cols-[1fr_390px] md:gap-3">
+            <div className="rounded-xl border border-white/10 bg-black/35 px-4 py-3 text-sm font-semibold text-zinc-300 md:rounded-2xl md:px-5 md:py-4 md:text-base">
               {feedback}
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/35 px-5 py-4 text-sm font-bold text-zinc-400">
+            <div className="hidden rounded-2xl border border-white/10 bg-black/35 px-5 py-4 text-sm font-bold text-zinc-400 md:block">
               <span className="text-amber-300">Scoring:</span> correct = points
               + combo bonus. Wrong clicks reset combo and lose points.
             </div>
@@ -390,23 +412,25 @@ function SpotCard({
   side: "left" | "right";
 }) {
   return (
-    <div className="flex flex-col items-center">
-      <p className="mb-4 rounded-full border border-white/10 bg-black/40 px-5 py-2 text-sm font-black uppercase tracking-[0.3em] text-zinc-300">
+    <div className="flex w-full flex-col items-center">
+      <p className="mb-2 rounded-full border border-white/10 bg-black/40 px-4 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-zinc-300 md:mb-4 md:px-5 md:py-2 md:text-sm">
         {title}
       </p>
 
       <div
         className={[
-          "relative aspect-square w-full max-w-[560px] rounded-full border border-white/15 shadow-2xl",
+          "relative aspect-square w-full max-w-[260px] rounded-full border border-white/15 shadow-2xl md:max-w-[560px]",
           "bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.95),rgba(254,243,199,0.92)_35%,rgba(251,207,232,0.9)_72%,rgba(165,243,252,0.88))]",
           side === "left" ? "rotate-[-2deg]" : "rotate-[2deg]",
         ].join(" ")}
       >
-        <div className="absolute inset-5 rounded-full border-8 border-dashed border-zinc-900/10" />
-        <div className="absolute inset-10 rounded-full border border-zinc-900/10" />
+        <div className="absolute inset-3 rounded-full border-[6px] border-dashed border-zinc-900/10 md:inset-5 md:border-8" />
+        <div className="absolute inset-6 rounded-full border border-zinc-900/10 md:inset-10" />
 
         {items.map((item, index) => {
           const p = positions[index];
+          // Scale down icon sizes on mobile
+          const mobileSize = Math.round(p.size * 0.55);
 
           return (
             <button
@@ -414,11 +438,11 @@ function SpotCard({
               disabled={disabled}
               onClick={() => onPick(item)}
               className={[
-                "absolute -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-white/70",
-                "bg-white/75 px-3 py-2 shadow-xl backdrop-blur-sm transition",
+                "absolute -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/70 md:rounded-3xl",
+                "bg-white/75 px-2 py-1 shadow-xl backdrop-blur-sm transition md:px-3 md:py-2",
                 disabled
                   ? "cursor-default"
-                  : "hover:scale-125 hover:bg-white active:scale-95",
+                  : "hover:scale-125 hover:bg-white active:scale-110",
               ].join(" ")}
               style={{
                 left: `${p.x}%`,
@@ -430,7 +454,7 @@ function SpotCard({
             >
               <span
                 className="block leading-none drop-shadow-sm"
-                style={{ fontSize: p.size }}
+                style={{ fontSize: `clamp(${mobileSize}px, 5vw, ${p.size}px)` }}
               >
                 {item.icon}
               </span>
@@ -446,18 +470,20 @@ function Stat({
   label,
   value,
   detail,
+  className = "",
 }: {
   label: string;
   value: number;
   detail: string;
+  className?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-xl backdrop-blur-xl">
-      <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-300">
+    <div className={`rounded-xl border border-white/10 bg-white/[0.06] p-3 shadow-xl backdrop-blur-xl md:rounded-2xl md:p-5 ${className}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-300 md:text-xs">
         {label}
       </p>
-      <p className="mt-1 text-4xl font-black">{value}</p>
-      <p className="mt-1 text-xs font-semibold text-zinc-500">{detail}</p>
+      <p className="mt-0.5 text-2xl font-black md:mt-1 md:text-4xl">{value}</p>
+      <p className="mt-0.5 text-[10px] font-semibold text-zinc-500 md:mt-1 md:text-xs">{detail}</p>
     </div>
   );
 }
@@ -472,17 +498,17 @@ function CenterOverlay({
   highlight?: boolean;
 }) {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45">
-      <div className="max-w-xl rounded-[2rem] border border-white/10 bg-zinc-950/90 p-8 text-center shadow-2xl backdrop-blur-xl">
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 p-4">
+      <div className="max-w-xl rounded-2xl border border-white/10 bg-zinc-950/90 p-6 text-center shadow-2xl backdrop-blur-xl md:rounded-[2rem] md:p-8">
         <p
           className={[
-            "text-5xl font-black",
+            "text-3xl font-black md:text-5xl",
             highlight ? "text-amber-300" : "text-white",
           ].join(" ")}
         >
           {title}
         </p>
-        <p className="mt-4 text-lg font-semibold text-zinc-300">{text}</p>
+        <p className="mt-3 text-sm font-semibold text-zinc-300 md:mt-4 md:text-lg">{text}</p>
       </div>
     </div>
   );
