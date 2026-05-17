@@ -1,80 +1,85 @@
 import { createClient } from "@/utils/supabase/client";
+import { canPlayOfficial } from "@/lib/gameAccess";
+
+type SaveScoreInput = {
+  gameId: string;
+  score: number;
+  durationSeconds?: number;
+  accuracy?: number | null;
+  attemptNumber?: number;
+};
+
+function getTodayDate() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getWeekStart() {
+  const now = new Date();
+  const local = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day = local.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  local.setDate(local.getDate() + diff);
+  const y = local.getFullYear();
+  const m = String(local.getMonth() + 1).padStart(2, "0");
+  const d = String(local.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 export async function saveScore({
   gameId,
   score,
-  durationSeconds,
-  accuracy,
+  durationSeconds = 0,
+  accuracy = null,
   attemptNumber = 1,
-}: {
-  gameId: string;
-  score: number;
-  durationSeconds: number;
-  accuracy?: number | null;
-  attemptNumber?: number;
-}) {
+}: SaveScoreInput) {
   const supabase = createClient();
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    console.log("NO USER FOUND:", userError);
-    return { data: null, error: userError, blocked: true };
+    throw new Error("You must be logged in to save a score.");
   }
 
-  const now = new Date();
+  const today = getTodayDate();
+  const weekStart = getWeekStart();
+  const isOfficial = canPlayOfficial(gameId);
 
-  const playedOn = now.toISOString().split("T")[0];
+  if (!isOfficial) {
+    throw new Error("This game is not available for official scoring today.");
+  }
 
-  const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-
-  const monday = new Date(now);
-  monday.setDate(diff);
-
-  const weekStart = monday.toISOString().split("T")[0];
-
-  const { data: existingScore, error: checkError } = await supabase
+  const { data: existingScore, error: existingError } = await supabase
     .from("game_scores")
     .select("id")
     .eq("user_id", user.id)
     .eq("game_id", gameId)
-    .eq("played_on", playedOn)
+    .eq("played_on", today)
+    .limit(1)
     .maybeSingle();
 
-  if (checkError) {
-    console.log("ATTEMPT CHECK ERROR:", checkError);
-    return { data: null, error: checkError, blocked: true };
-  }
+  if (existingError) throw existingError;
 
   if (existingScore) {
-    console.log("ATTEMPT BLOCKED: already played today");
-    return {
-      data: null,
-      error: null,
-      blocked: true,
-      reason: "You already used your official attempt for this game today.",
-    };
+    throw new Error("You already submitted your official attempt today.");
   }
 
-  const { data, error } = await supabase
-    .from("game_scores")
-    .insert({
-      user_id: user.id,
-      game_id: gameId,
-      score,
-      duration_seconds: durationSeconds,
-      accuracy: accuracy ?? null,
-      attempt_number: attemptNumber,
-      played_on: playedOn,
-      week_start: weekStart,
-    })
-    .select();
+  const { error } = await supabase.from("game_scores").insert({
+    user_id: user.id,
+    game_id: gameId,
+    score,
+    duration_seconds: durationSeconds,
+    accuracy,
+    attempt_number: attemptNumber,
+    played_on: today,
+    week_start: weekStart,
+    flagged: false,
+  });
 
-  console.log("SAVE RESULT:", { data, error });
+  if (error) throw error;
 
-  return { data, error, blocked: false };
+  return { success: true };
 }
