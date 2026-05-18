@@ -1,10 +1,10 @@
 import WordRush from "@/components/Games/WordRush";
 
 export default function WordRushPage() {
-  const today = new Date().toLocaleString("en-US", {
+  const today = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     weekday: "long",
-  });
+  }).format(new Date());
 
   if (today !== "Monday") {
     return (
