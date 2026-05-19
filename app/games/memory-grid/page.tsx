@@ -1,10 +1,10 @@
 import MemoryGrid from "@/components/Games/MemoryGrid";
 
 export default function MemoryGridPage() {
-  const today = new Date().toLocaleString("en-US", {
+  const today = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     weekday: "long",
-  });
+  }).format(new Date());
 
   if (today !== "Tuesday") {
     return (
