@@ -238,28 +238,24 @@ function updateHazardPosition(h: Hazard, elapsed: number): Hazard {
   };
 }
 
-// ─── ROTATE PROMPT COMPONENT ──────────────────────────────────────────────────
+// ─── MOBILE PROMPT COMPONENT ──────────────────────────────────────────────────
 
-function RotatePrompt() {
+function MobilePrompt() {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#02030a] p-8 text-center text-white">
-      <div className="mb-6 text-7xl">📱↔️</div>
-      <h2 className="text-3xl font-black">Rotate Your Device</h2>
+      <div className="mb-6 text-7xl">🖥️</div>
+      <h2 className="text-3xl font-black">Play on a Computer</h2>
       <p className="mt-4 max-w-sm text-lg text-zinc-400">
-        Precision Trace requires landscape mode. Please turn your phone sideways to play.
+        Precision Trace requires a large screen and mouse precision. Please open this game on a desktop or laptop to play.
       </p>
-      <div className="mt-8 flex items-center gap-3">
-        <div className="h-12 w-8 rounded-lg border-2 border-zinc-500 transition-transform animate-[rotatePhone_2s_ease-in-out_infinite]" />
-        <span className="text-2xl text-zinc-500">→</span>
-        <div className="h-8 w-12 rounded-lg border-2 border-emerald-400" />
+      <div className="mt-8 flex items-center gap-3 text-zinc-500">
+        <span className="text-4xl">📱</span>
+        <span className="text-2xl">→</span>
+        <span className="text-4xl">💻</span>
       </div>
-      <style jsx>{`
-        @keyframes rotatePhone {
-          0%, 30% { transform: rotate(0deg); }
-          50%, 80% { transform: rotate(90deg); }
-          100% { transform: rotate(0deg); }
-        }
-      `}</style>
+      <p className="mt-4 text-sm text-zinc-600">
+        Best experienced on a widescreen display.
+      </p>
     </div>
   );
 }
@@ -305,21 +301,19 @@ export default function PrecisionTrace() {
     [trail]
   );
 
-  // Detect portrait mode on mobile
+  // Detect mobile (small screen)
   useEffect(() => {
-    function checkOrientation() {
-      const isMobile = window.innerWidth < 1024;
-      const portrait = window.innerHeight > window.innerWidth;
-      setIsPortrait(isMobile && portrait);
+    function checkSize() {
+      setIsPortrait(window.innerWidth < 1024);
     }
-    checkOrientation();
-    window.addEventListener("resize", checkOrientation);
+    checkSize();
+    window.addEventListener("resize", checkSize);
     window.addEventListener("orientationchange", () => {
-      setTimeout(checkOrientation, 100);
+      setTimeout(checkSize, 100);
     });
     return () => {
-      window.removeEventListener("resize", checkOrientation);
-      window.removeEventListener("orientationchange", checkOrientation);
+      window.removeEventListener("resize", checkSize);
+      window.removeEventListener("orientationchange", checkSize);
     };
   }, []);
 
@@ -467,28 +461,26 @@ export default function PrecisionTrace() {
     return () => clearInterval(mover);
   }, [phase]);
 
-  // touchscreen stuff
+  // Prevent touch scroll on the board
   useEffect(() => {
-  const el = boardRef.current;
-  if (!el) return;
-  function preventTouch(e: TouchEvent) {
-    e.preventDefault();
-  }
-  
-  el.addEventListener("touchstart", preventTouch, { passive: false });
-  el.addEventListener("touchmove", preventTouch, { passive: false });
-  el.addEventListener("touchend", preventTouch, { passive: false });
-  
-  return () => {
-    el.removeEventListener("touchstart", preventTouch);
-    el.removeEventListener("touchmove", preventTouch);
-    el.removeEventListener("touchend", preventTouch);
-  };
-  
-}, [phase]);
-  // Show rotation prompt on mobile portrait
+    const el = boardRef.current;
+    if (!el) return;
+    function preventTouch(e: TouchEvent) {
+      e.preventDefault();
+    }
+    el.addEventListener("touchstart", preventTouch, { passive: false });
+    el.addEventListener("touchmove", preventTouch, { passive: false });
+    el.addEventListener("touchend", preventTouch, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", preventTouch);
+      el.removeEventListener("touchmove", preventTouch);
+      el.removeEventListener("touchend", preventTouch);
+    };
+  }, [phase]);
+
+  // Show mobile prompt on small screens
   if (isPortrait) {
-    return <RotatePrompt />;
+    return <MobilePrompt />;
   }
 
   return (
@@ -583,7 +575,8 @@ export default function PrecisionTrace() {
             onTouchMove={(e) => e.preventDefault()}
             className={[
               "relative aspect-[1500/760] w-full overflow-hidden rounded-xl border border-white/10 lg:rounded-[1.75rem]",
-             "touch-none select-none overscroll-none cursor-crosshair shadow-2xl",               "bg-[#030712]",
+              "touch-none select-none overscroll-none cursor-crosshair shadow-2xl",
+              "bg-[#030712]",
               phase === "crashed" ? "ring-4 ring-red-400" : "",
             ].join(" ")}
           >

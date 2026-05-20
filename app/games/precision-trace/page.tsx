@@ -1,7 +1,7 @@
 import PrecisionTrace from "@/components/Games/PrecisionTrace";
 
 export default function PrecisionTracePage() {
-  const today = new Date().toLocaleString("en-US", {
+  const today = new Date().toLocaleDateString("en-US", {
     timeZone: "America/New_York",
     weekday: "long",
   });
