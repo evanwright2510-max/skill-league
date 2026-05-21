@@ -1,10 +1,10 @@
 import ReactionCity from "@/components/Games/ReactionCity";
 
 export default function ReactionCityPage() {
-  const today = new Date().toLocaleString("en-US", {
+  const today = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     weekday: "long",
-  });
+  }).format(new Date());
 
   if (today !== "Friday") {
     return (
