@@ -1,10 +1,10 @@
 import MatchRush from "@/components/Games/MatchRush";
 
 export default function MatchRushPage() {
-  const today = new Date().toLocaleString("en-US", {
+  const today = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     weekday: "long",
-  });
+  }).format(new Date());
 
   if (today !== "Thursday") {
     return (
