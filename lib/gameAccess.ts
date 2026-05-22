@@ -3,7 +3,7 @@ const GAME_SCHEDULE: Record<string, number> = {
   "memory-grid":     2,
   "precision-trace": 3,
   "match-rush":      4,
-  "reaction-lock":   5,
+  "reaction-city":   5,
   "the-grind":       6,
 };
 
