@@ -1,5 +1,7 @@
 import WordRush from "@/components/Games/WordRush";
 
+export const dynamic = "force-dynamic";  // ← add this line
+
 export default function WordRushPage() {
   const today = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
